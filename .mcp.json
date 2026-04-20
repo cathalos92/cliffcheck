@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "papi": {
+      "command": "node",
+      "args": ["/Users/cathaloullivan/Ai-App-Projects/PapiUI/packages/server/dist/index.js"],
+      "env": {
+        "PAPI_PROJECT_DIR": "/Users/cathaloullivan/Ai-App-Projects/VibeJam",
+        "PAPI_ADAPTER": "pg",
+        "DATABASE_URL": "postgresql://postgres.guewgygcpcmrcoppihzx:ltYgrKtrhBkKCKb9@aws-1-eu-west-1.pooler.supabase.com:6543/postgres"
+      }
+    }
+  }
+}
