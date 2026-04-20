@@ -15,12 +15,13 @@ Benefits Cliff Navigator — a phone-first web app revealing the hidden math beh
 - Deploy to Cloudflare Workers via VibesOS deploy pipeline
 - Chart.js (or similar lightweight library) for cliff visualization
 
-## VibesOS Plugin
-VibesOS is installed at `~/Ai-App-Projects/VibesOS`. To use:
-```bash
-claude --plugin ~/Ai-App-Projects/VibesOS
-```
-Key commands: `/vibes` (generate app), `/launch` (editor GUI)
+## VibesOS Stack (Direct)
+Using VibesOS stack directly (no plugin wrapper). Reference repo at `~/Ai-App-Projects/VibesOS`.
+- `index.html` is the single-file app — React + TinyBase + Tailwind loaded from CDN
+- JSX transpiled via Babel in-browser (`<script type="text/babel">`)
+- TinyBase for local-first data persistence (localStorage via persister-browser)
+- All app code lives inline in index.html — no build step needed
+- For VibesOS patterns/hooks reference, see `~/Ai-App-Projects/VibesOS/skills/vibes/SKILL.md`
 
 ## PAPI Project Management
 This project uses PAPI for planning/building/reviewing. MCP server configured in `.mcp.json`.
@@ -45,9 +46,6 @@ Follow the standard cycle: `plan -> build_list -> build_execute -> implement -> 
 **In scope:** Benefit calculator, cliff chart, manager brief, 2-3 states, deploy
 **Out of scope:** User accounts, data persistence across devices, real-time benefit API integration, all 50 states, PDF export (screenshot-friendly is sufficient)
 
-## Key Files (planned)
-- `app.jsx` — Main React application
-- `index.html` — Assembled VibesOS output
-- `lib/benefits/` — State-specific benefit calculation engines
-- `lib/charts/` — Cliff visualization components
-- `lib/brief/` — Manager brief generation
+## Key Files
+- `index.html` — THE app. Single-file React+TinyBase+Tailwind. All code inline.
+- `PRODUCT_BRIEF.md` — Full hackathon context, persona, architecture, success criteria
