@@ -1,0 +1,23 @@
+# Dependencies
+node_modules/
+
+# VibesOS build output
+index.html
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+.idea/
+
+# Environment
+.env
+.env.local
+
+# VibesOS local state
+.vibes/
+
+# PAPI local files (DB is source of truth)
+.papi/
