@@ -77,18 +77,17 @@ snap_benefit = max(0, max_benefit - (net_income × 0.30))
 SNAP is a **graduated phase-out**, not a hard cliff. Benefit reduces $0.30 per $1 of net income.
 
 ### Cliff Point — Family of 4
-SNAP reaches $0 when: `net_income ≥ $994 / 0.30 = $3,313/month`
+**Binding constraint: the net income test at 100% FPL ($2,750/month), not the benefit formula.**
 
-Working backwards for a fully-earned income with no other deductions:
 ```
 net = gross × 0.80 - $228
-$3,313 = gross × 0.80 - $228
-gross = ($3,313 + $228) / 0.80 = $4,426/month = ~$53,100/year
+$2,750 = gross × 0.80 - $228
+gross = ($2,750 + $228) / 0.80 = $3,723/month = ~$44,671/year
 ```
 
-**SNAP functional phase-out: ~$53,100/year for a family of 4 with earned income.**
+**SNAP = $0 for family of 4 when gross income ≥ ~$44,671/year** (engine-verified).
 
-Note: Ohio BBCE gross limit ($66,000/yr for HH of 4) is above this functional phase-out, so the BBCE limit is not the binding constraint for working households.
+The benefit formula would zero out at ~$53,100 (net = $3,313/month), but the 100% FPL net income test eliminates eligibility first (~$44,671). Ohio BBCE only waives the asset test — the net income test remains. **Corrected from initial research estimate of $53,100.**
 
 ### Ohio-Specific Notes
 - Ohio applies BBCE since 2010 — no asset test for most households
@@ -283,21 +282,22 @@ Do NOT model Section 8 as a flowing graduated benefit for the default view. It d
 |---|---|---|---|
 | Medicaid (adults 19–64) | Hard binary | **$45,540** (138% FPL) | Children eligible to 216% FPL |
 | PFCC Childcare (entry) | Hard entry cliff | **$47,850** (145% FPL) | Continuation to $99K for enrolled families |
-| SNAP | Graduated phase-out | **~$53,100** functional | $0.30 reduction per $1 net income |
+| SNAP | Graduated phase-out | **~$44,671** (net income test) | Net income > 100% FPL eliminates eligibility |
 | ACA PTC (400% cliff) | Hard cliff | **$132,000** (400% FPL) | Outside Keisha's range; relevant for higher earners |
 | Section 8 / HCV | Waitlist/binary | ~$52,500 (50% AMI) | Modeled as inactive by default |
 
-### The Keisha Danger Zone ($45K–$55K)
-The most dangerous income range for Ohio families of 4 in 2026:
-- **$45,540**: Lose Medicaid → must buy ACA marketplace coverage (~$3,000+/year net cost at that income)
-- **$47,850**: Can no longer newly enroll in PFCC childcare → lose up to $18,000/year in childcare support
-- **~$53,100**: SNAP fully phases out → lose up to $994/month ($11,928/year)
+### The Keisha Danger Zone ($44K–$48K)
+The most dangerous income range for Ohio families of 4 in 2026 — engine-verified:
+- **~$44,671**: SNAP eliminated (net income test at 100% FPL) → lose up to $2,184/year
+- **$45,540**: Lose Medicaid → must buy ACA marketplace coverage (~$1,600/year net cost at that income)
+- **$47,850**: Can no longer newly enroll in PFCC childcare → lose ~$19,920/year in childcare subsidy
 
-A raise from $45,000 to $55,000 (+$10,000 gross) generates:
-- Medicaid loss: +$3,000–$5,000 ACA premium cost
-- PFCC loss (if not enrolled): +$18,000 childcare cost
-- SNAP loss: ~$800–$994/month × 12 = $10,000–$12,000
-- **Net: the $10,000 raise can cost $30,000+ in lost benefits — leaving the household $20,000+ worse off**
+**The $47,850 PFCC cliff is the dominant cliff.** A $4,000 raise from $44K to $48K can drop effective take-home by ~$24,000:
+- At $44K: effective = $70,604 (wages + SNAP + Medicaid + PFCC)
+- At $48K: effective = $46,124 (wages − ACA only; no benefits)
+- Net loss from a $4,000 raise: **−$24,480 effective income**
+
+Recovery happens as wages continue rising: at $70K effective = $65,068. The chart shows a "valley of death" between $48K–$65K where taking a raise leaves you worse off than staying at $44K.
 
 ---
 
