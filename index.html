@@ -333,7 +333,7 @@
 
       // ── Store (module-level singleton) ──
       const store = createStore();
-      const DEFAULTS = { state: 'OH', familySize: 4, currentIncome: 44000, offeredIncome: 70000, adultCount: 2, hasSection8Voucher: false };
+      const DEFAULTS = { state: 'OH', familySize: 4, currentIncome: 44000, offeredIncome: 70000, adultCount: 2, hasSection8Voucher: false, pfccEnrolled: false };
 
       // ── Helpers ──
       function fmtDollars(n) {
@@ -422,6 +422,7 @@
         const offeredIncome    = useCell('profile', 'current', 'offeredIncome')    ?? DEFAULTS.offeredIncome;
         const adultCount       = useCell('profile', 'current', 'adultCount')       ?? DEFAULTS.adultCount;
         const hasSection8Voucher = useCell('profile', 'current', 'hasSection8Voucher') ?? DEFAULTS.hasSection8Voucher;
+        const pfccEnrolled     = useCell('profile', 'current', 'pfccEnrolled')     ?? DEFAULTS.pfccEnrolled;
 
         return (
           <div className="bg-white rounded-2xl border border-stone-200 p-5 mt-6">
@@ -498,7 +499,7 @@
             </div>
 
             {/* Section 8 voucher */}
-            <div>
+            <div className="mb-3">
               <label className="flex items-center gap-3 cursor-pointer">
                 <input
                   type="checkbox"
@@ -509,6 +510,21 @@
                 <span className="text-sm text-stone-700">I have a Section 8 / Housing Choice Voucher</span>
               </label>
             </div>
+
+            {/* PFCC enrolled — Ohio only, families with children */}
+            {Number(familySize) > 1 && (
+              <div>
+                <label className="flex items-center gap-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={!!pfccEnrolled}
+                    onChange={e => store.setCell('profile', 'current', 'pfccEnrolled', e.target.checked)}
+                    className="w-5 h-5 rounded border-stone-300 accent-amber-500"
+                  />
+                  <span className="text-sm text-stone-700">Already enrolled in subsidised childcare (PFCC)</span>
+                </label>
+              </div>
+            )}
           </div>
         );
       }
@@ -520,12 +536,13 @@
         const offeredIncome    = useCell('profile', 'current', 'offeredIncome')    ?? DEFAULTS.offeredIncome;
         const adultCount       = useCell('profile', 'current', 'adultCount')       ?? DEFAULTS.adultCount;
         const hasSection8Voucher = useCell('profile', 'current', 'hasSection8Voucher') ?? DEFAULTS.hasSection8Voucher;
+        const pfccEnrolled     = useCell('profile', 'current', 'pfccEnrolled')     ?? DEFAULTS.pfccEnrolled;
 
-        const opts = { adultCount: Number(adultCount), hasVoucher: !!hasSection8Voucher };
+        const opts = { adultCount: Number(adultCount), hasVoucher: !!hasSection8Voucher, pfccEnrolled: !!pfccEnrolled };
 
         const current = useMemo(
           () => calcEffectiveTakeHome(Number(currentIncome), Number(familySize), opts),
-          [currentIncome, familySize, adultCount, hasSection8Voucher]
+          [currentIncome, familySize, adultCount, hasSection8Voucher, pfccEnrolled]
         );
         const offered = useMemo(
           () => calcEffectiveTakeHome(Number(offeredIncome), Number(familySize), opts),
@@ -550,7 +567,7 @@
             }
           }
           return null;
-        }, [familySize, currentIncome, adultCount, hasSection8Voucher]);
+        }, [familySize, currentIncome, adultCount, hasSection8Voucher, pfccEnrolled]);
 
         // Per-benefit deltas (monthly, for breakdown display)
         const breakdown = isWorse ? [
@@ -730,8 +747,9 @@
         const offeredIncome    = useCell('profile', 'current', 'offeredIncome')    ?? DEFAULTS.offeredIncome;
         const adultCount       = useCell('profile', 'current', 'adultCount')       ?? DEFAULTS.adultCount;
         const hasSection8Voucher = useCell('profile', 'current', 'hasSection8Voucher') ?? DEFAULTS.hasSection8Voucher;
+        const pfccEnrolled     = useCell('profile', 'current', 'pfccEnrolled')     ?? DEFAULTS.pfccEnrolled;
 
-        const opts = { adultCount: Number(adultCount), hasVoucher: !!hasSection8Voucher };
+        const opts = { adultCount: Number(adultCount), hasVoucher: !!hasSection8Voucher, pfccEnrolled: !!pfccEnrolled };
 
         const { pts, currentResult, offeredResult, safeExit, yMin, cliffAnnotation } = useMemo(() => {
           const data = getCliffChartData(Number(familySize), opts);
@@ -771,7 +789,7 @@
           }
 
           return { pts, currentResult, offeredResult, safeExit, yMin, cliffAnnotation };
-        }, [familySize, currentIncome, offeredIncome, adultCount, hasSection8Voucher]);
+        }, [familySize, currentIncome, offeredIncome, adultCount, hasSection8Voucher, pfccEnrolled]);
 
         useEffect(() => {
           if (!canvasRef.current) return;
@@ -822,7 +840,7 @@
                     title: ctx => '$' + Number(ctx[0].parsed.x).toLocaleString() + '/yr wages',
                     label: ctx => {
                       const income = Number(ctx.parsed.x);
-                      const r = calcEffectiveTakeHome(income, Number(familySize), { adultCount: Number(adultCount), hasVoucher: !!hasSection8Voucher });
+                      const r = calcEffectiveTakeHome(income, Number(familySize), { adultCount: Number(adultCount), hasVoucher: !!hasSection8Voucher, pfccEnrolled: !!pfccEnrolled });
                       const lines = [
                         `Wages:      $${Math.round(r.grossWages).toLocaleString()}`,
                         `SNAP:      +$${Math.round(r.snapValue).toLocaleString()}`,
@@ -951,9 +969,10 @@
         const offeredIncome    = useCell('profile', 'current', 'offeredIncome')    ?? DEFAULTS.offeredIncome;
         const adultCount       = useCell('profile', 'current', 'adultCount')       ?? DEFAULTS.adultCount;
         const hasSection8Voucher = useCell('profile', 'current', 'hasSection8Voucher') ?? DEFAULTS.hasSection8Voucher;
+        const pfccEnrolled     = useCell('profile', 'current', 'pfccEnrolled')     ?? DEFAULTS.pfccEnrolled;
         const [copied, setCopied] = useState(false);
 
-        const opts = { adultCount: Number(adultCount), hasVoucher: !!hasSection8Voucher };
+        const opts = { adultCount: Number(adultCount), hasVoucher: !!hasSection8Voucher, pfccEnrolled: !!pfccEnrolled };
 
         const { current, offered, safeExit, benefitValue, diff } = useMemo(() => {
           const fs  = Number(familySize);
@@ -974,7 +993,7 @@
             }
           }
           return { current, offered, safeExit, benefitValue, diff };
-        }, [familySize, currentIncome, offeredIncome, adultCount, hasSection8Voucher]);
+        }, [familySize, currentIncome, offeredIncome, adultCount, hasSection8Voucher, pfccEnrolled]);
 
         const isWorse = diff < -500;
         const line1 = `Currently earning ${fmtDollars(Number(currentIncome))}/yr with ${fmtDollars(Math.abs(benefitValue))} in annual benefit value — ${fmtDollars(current.totalEffective)} total effective`;
