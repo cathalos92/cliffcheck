@@ -12,7 +12,7 @@
 
 | Document | Status | Last Updated | Consumer |
 |----------|--------|--------------|----------|
-| *Add research docs here* | | | |
+| [ohio-benefit-rules.md](ohio-benefit-rules.md) | Active | 2026-04-21 | builder, planner |
 
 ## Reference
 
