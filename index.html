@@ -510,6 +510,22 @@
         const isWorse  = diff < -500;
         const isBetter = diff > 500;
 
+        const raiseAmount = Number(offeredIncome) - Number(currentIncome);
+
+        const safeExit = useMemo(() => {
+          const data = getCliffChartData(Number(familySize), opts);
+          const baseline = current.totalEffective;
+          for (let i = data.length - 1; i >= 0; i--) {
+            if (data[i].totalEffective < baseline) {
+              if (i + 1 < data.length && data[i + 1].income > Number(currentIncome)) {
+                return data[i + 1].income;
+              }
+              break;
+            }
+          }
+          return null;
+        }, [familySize, currentIncome, adultCount, hasSection8Voucher]);
+
         // Per-benefit deltas (monthly, for breakdown display)
         const breakdown = isWorse ? [
           { label: 'SNAP',      delta: Math.round((offered.snapValue      - current.snapValue)      / 12) },
@@ -553,10 +569,13 @@
 
             {isWorse && (
               <div className="mt-4 p-3.5 bg-red-50 rounded-xl border border-red-200">
-                <p className="text-sm font-semibold text-red-700">
-                  ⚠ This raise makes you {fmtDollars(Math.abs(diff))} worse off per year
+                <p className="text-base font-bold text-stone-900 leading-snug" style={{fontVariantNumeric:'tabular-nums'}}>
+                  {raiseAmount > 0
+                    ? <>Your {fmtDollars(raiseAmount)} raise makes you {fmtDollars(Math.abs(diff))} poorer.</>
+                    : <>This offer makes you {fmtDollars(Math.abs(diff))} worse off than today.</>}
+                  {safeExit ? <> You'd need at least {fmtDollars(safeExit)}/yr to break even.</> : null}
                 </p>
-                <p className="text-xs text-red-600 mt-1">
+                <p className="text-xs text-red-600 mt-1.5">
                   Benefits phase out faster than your wages grow.
                 </p>
                 {breakdown.length > 0 && (
