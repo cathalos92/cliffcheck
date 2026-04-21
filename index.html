@@ -175,11 +175,11 @@
 
       // ── Medicaid Value (annual dollar proxy for free coverage) ─────────────
       // Binary cliff at 138% FPL for adults. Children eligible to 216% FPL.
-      // Value proxy = avoided insurance cost (2 adults × adultAnnualValueProxy).
-      function calcMedicaidValue(annualIncome, familySize) {
+      // Value proxy = avoided insurance cost (adults × adultAnnualValueProxy).
+      function calcMedicaidValue(annualIncome, familySize, adultCount) {
         const fpl = getFPL(familySize);
         if (annualIncome / fpl <= OH.medicaid.expansionFPL) {
-          const adults = Math.max(1, Math.min(2, familySize - Math.max(0, familySize - 2)));
+          const adults = Math.max(1, Math.min(adultCount, familySize));
           return adults * OH.medicaid.adultAnnualValueProxy;
         }
         return 0;
@@ -187,11 +187,11 @@
 
       // ── PFCC Childcare Subsidy ─────────────────────────────────────────────
       // Entry cliff at 145% FPL. Enrolled families exit at 300% FPL.
-      // numChildren inferred from familySize (assumes 2 adults).
-      function calcChildcareSubsidy(annualIncome, familySize, pfccEnrolled) {
+      // numChildren = familySize - adultCount (supports single-parent households).
+      function calcChildcareSubsidy(annualIncome, familySize, pfccEnrolled, adultCount) {
         const fpl = getFPL(familySize);
         const fplFraction = annualIncome / fpl;
-        const numChildren = Math.max(0, familySize - 2);
+        const numChildren = Math.max(0, familySize - adultCount);
         const idx = Math.min(numChildren, OH.pfcc.childcareValuePerChild.length - 1);
         const grossValue = OH.pfcc.childcareValuePerChild[idx];
 
@@ -221,14 +221,14 @@
       // Returns breakdown + totalEffective for any income across all programs.
       // opts: { pfccEnrolled: bool, hasVoucher: bool }
       function calcEffectiveTakeHome(annualIncome, familySize, opts) {
-        const { pfccEnrolled = false, hasVoucher = false } = opts || {};
+        const { pfccEnrolled = false, hasVoucher = false, adultCount = 2 } = opts || {};
         const onMedicaid = annualIncome / getFPL(familySize) <= OH.medicaid.expansionFPL;
 
         const snapValue      = calcSnap(annualIncome, familySize);
-        const medicaidValue  = onMedicaid ? calcMedicaidValue(annualIncome, familySize) : 0;
+        const medicaidValue  = onMedicaid ? calcMedicaidValue(annualIncome, familySize, adultCount) : 0;
         const acaCost        = onMedicaid ? 0 : calcACAPremium(annualIncome, familySize);
         const section8Value  = calcSection8Value(annualIncome, familySize, hasVoucher);
-        const childcareValue = calcChildcareSubsidy(annualIncome, familySize, pfccEnrolled);
+        const childcareValue = calcChildcareSubsidy(annualIncome, familySize, pfccEnrolled, adultCount);
 
         const totalEffective = Math.round(
           annualIncome + snapValue + medicaidValue + section8Value + childcareValue - acaCost
@@ -255,8 +255,9 @@
       // $54K is above all Ohio benefit thresholds. $44K is the correct demo wage
       // where SNAP + Medicaid + PFCC childcare are all active simultaneously.
       (function validateKeisha() {
-        const current = calcEffectiveTakeHome(44000, 4);
-        const offered  = calcEffectiveTakeHome(70000, 4);
+        // Case 1: Keisha — family of 4, 2 adults, 2 children (default scenario)
+        const current = calcEffectiveTakeHome(44000, 4, { adultCount: 2 });
+        const offered  = calcEffectiveTakeHome(70000, 4, { adultCount: 2 });
         const netDiff  = offered.totalEffective - current.totalEffective;
 
         // currentEffective ~$70,604 — wages + SNAP($2,184) + Medicaid($4,500) + PFCC($19,920)
@@ -270,7 +271,7 @@
         // safeExit ~$79,000 — first income where effective exceeds current + $2K
         let safeExit = null;
         for (let i = 70000; i <= 120000; i += 1000) {
-          if (calcEffectiveTakeHome(i, 4).totalEffective > current.totalEffective + 2000) {
+          if (calcEffectiveTakeHome(i, 4, { adultCount: 2 }).totalEffective > current.totalEffective + 2000) {
             safeExit = i;
             break;
           }
@@ -278,11 +279,39 @@
         console.assert(safeExit >= 78000 && safeExit <= 86000,
           'Keisha safeExit out of range', safeExit);
 
-        console.log('[CliffCheck] Keisha validation PASSED', {
+        console.log('[CliffCheck] Keisha (2-adult) PASSED', {
           currentEffective: current.totalEffective,
           offeredEffective: offered.totalEffective,
           netDiff,
           safeExit,
+        });
+
+        // Case 2: Single-parent — family of 4, 1 adult, 3 children
+        // SNAP allotment should be higher (more children), childcare covers 3 kids
+        const spCurrent = calcEffectiveTakeHome(44000, 4, { adultCount: 1 });
+        // Medicaid value should be 1 adult proxy ($2,250) not 2 ($4,500)
+        console.assert(spCurrent.medicaidValue === OH.medicaid.adultAnnualValueProxy,
+          'Single-parent Medicaid should be 1-adult proxy', spCurrent.medicaidValue);
+        // PFCC childcare should cover 3 children (idx=3, $33,000 gross value)
+        console.assert(spCurrent.childcareValue > 20000,
+          'Single-parent childcare should cover 3 children', spCurrent.childcareValue);
+        console.log('[CliffCheck] Single-parent (1-adult) PASSED', {
+          currentEffective: spCurrent.totalEffective,
+          medicaidValue: spCurrent.medicaidValue,
+          childcareValue: spCurrent.childcareValue,
+        });
+
+        // Case 3: Voucher holder — family of 3, $30K income
+        // Subsidy should be positive and decline as income rises
+        const vCurrent = calcEffectiveTakeHome(30000, 3, { adultCount: 2, hasVoucher: true });
+        const vHigher  = calcEffectiveTakeHome(50000, 3, { adultCount: 2, hasVoucher: true });
+        console.assert(vCurrent.section8Value > 0,
+          'Voucher holder at $30K should have positive subsidy', vCurrent.section8Value);
+        console.assert(vHigher.section8Value < vCurrent.section8Value,
+          'Voucher subsidy should decline as income rises', { low: vCurrent.section8Value, high: vHigher.section8Value });
+        console.log('[CliffCheck] Section 8 voucher PASSED', {
+          at30k: vCurrent.section8Value,
+          at50k: vHigher.section8Value,
         });
       })();
     </script>
@@ -304,7 +333,7 @@
 
       // ── Store (module-level singleton) ──
       const store = createStore();
-      const DEFAULTS = { state: 'OH', familySize: 4, currentIncome: 44000, offeredIncome: 70000 };
+      const DEFAULTS = { state: 'OH', familySize: 4, currentIncome: 44000, offeredIncome: 70000, adultCount: 2, hasSection8Voucher: false };
 
       // ── Helpers ──
       function fmtDollars(n) {
@@ -360,9 +389,11 @@
 
       // ── ProfileForm ──
       function ProfileForm() {
-        const familySize    = useCell('profile', 'current', 'familySize')    ?? DEFAULTS.familySize;
-        const currentIncome = useCell('profile', 'current', 'currentIncome') ?? DEFAULTS.currentIncome;
-        const offeredIncome = useCell('profile', 'current', 'offeredIncome') ?? DEFAULTS.offeredIncome;
+        const familySize       = useCell('profile', 'current', 'familySize')       ?? DEFAULTS.familySize;
+        const currentIncome    = useCell('profile', 'current', 'currentIncome')    ?? DEFAULTS.currentIncome;
+        const offeredIncome    = useCell('profile', 'current', 'offeredIncome')    ?? DEFAULTS.offeredIncome;
+        const adultCount       = useCell('profile', 'current', 'adultCount')       ?? DEFAULTS.adultCount;
+        const hasSection8Voucher = useCell('profile', 'current', 'hasSection8Voucher') ?? DEFAULTS.hasSection8Voucher;
 
         return (
           <div className="bg-white rounded-2xl border border-stone-200 p-5 mt-6">
@@ -393,6 +424,27 @@
               </select>
             </div>
 
+            {/* Adults in household */}
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-stone-700 mb-1.5">Adults in household</label>
+              <div className="flex gap-3">
+                {[1, 2].map(n => (
+                  <button
+                    key={n}
+                    type="button"
+                    onClick={() => store.setCell('profile', 'current', 'adultCount', n)}
+                    className={`flex-1 h-12 rounded-lg border text-sm font-medium transition-colors ${
+                      Number(adultCount) === n
+                        ? 'bg-amber-400 border-amber-400 text-stone-900'
+                        : 'bg-white border-stone-200 text-stone-700 hover:border-amber-300'
+                    }`}
+                  >
+                    {n === 1 ? '1 — single parent' : '2 — two adults'}
+                  </button>
+                ))}
+              </div>
+            </div>
+
             {/* Current wages */}
             <div className="mb-4">
               <label htmlFor="currentIncome" className="block text-sm font-medium text-stone-700 mb-1.5">
@@ -407,7 +459,7 @@
             </div>
 
             {/* Offered wages */}
-            <div>
+            <div className="mb-4">
               <label htmlFor="offeredIncome" className="block text-sm font-medium text-stone-700 mb-1.5">
                 Offered or target annual wages
               </label>
@@ -418,28 +470,54 @@
                 placeholder="e.g. $70,000"
               />
             </div>
+
+            {/* Section 8 voucher */}
+            <div>
+              <label className="flex items-center gap-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={!!hasSection8Voucher}
+                  onChange={e => store.setCell('profile', 'current', 'hasSection8Voucher', e.target.checked)}
+                  className="w-5 h-5 rounded border-stone-300 accent-amber-500"
+                />
+                <span className="text-sm text-stone-700">I have a Section 8 / Housing Choice Voucher</span>
+              </label>
+            </div>
           </div>
         );
       }
 
       // ── LiveSummary ──
       function LiveSummary() {
-        const familySize    = useCell('profile', 'current', 'familySize')    ?? DEFAULTS.familySize;
-        const currentIncome = useCell('profile', 'current', 'currentIncome') ?? DEFAULTS.currentIncome;
-        const offeredIncome = useCell('profile', 'current', 'offeredIncome') ?? DEFAULTS.offeredIncome;
+        const familySize       = useCell('profile', 'current', 'familySize')       ?? DEFAULTS.familySize;
+        const currentIncome    = useCell('profile', 'current', 'currentIncome')    ?? DEFAULTS.currentIncome;
+        const offeredIncome    = useCell('profile', 'current', 'offeredIncome')    ?? DEFAULTS.offeredIncome;
+        const adultCount       = useCell('profile', 'current', 'adultCount')       ?? DEFAULTS.adultCount;
+        const hasSection8Voucher = useCell('profile', 'current', 'hasSection8Voucher') ?? DEFAULTS.hasSection8Voucher;
+
+        const opts = { adultCount: Number(adultCount), hasVoucher: !!hasSection8Voucher };
 
         const current = useMemo(
-          () => calcEffectiveTakeHome(Number(currentIncome), Number(familySize)),
-          [currentIncome, familySize]
+          () => calcEffectiveTakeHome(Number(currentIncome), Number(familySize), opts),
+          [currentIncome, familySize, adultCount, hasSection8Voucher]
         );
         const offered = useMemo(
-          () => calcEffectiveTakeHome(Number(offeredIncome), Number(familySize)),
-          [offeredIncome, familySize]
+          () => calcEffectiveTakeHome(Number(offeredIncome), Number(familySize), opts),
+          [offeredIncome, familySize, adultCount, hasSection8Voucher]
         );
 
         const diff = offered.totalEffective - current.totalEffective;
-        const isWorse  = diff < -500;   // ignore rounding noise
+        const isWorse  = diff < -500;
         const isBetter = diff > 500;
+
+        // Per-benefit deltas (monthly, for breakdown display)
+        const breakdown = isWorse ? [
+          { label: 'SNAP',      delta: Math.round((offered.snapValue      - current.snapValue)      / 12) },
+          { label: 'Medicaid',  delta: Math.round((offered.medicaidValue  - current.medicaidValue)  / 12) },
+          { label: 'ACA cost',  delta: Math.round((offered.acaCost        - current.acaCost)        / 12) },
+          { label: 'Childcare', delta: Math.round((offered.childcareValue - current.childcareValue) / 12) },
+          ...(opts.hasVoucher ? [{ label: 'Section 8', delta: Math.round((offered.section8Value - current.section8Value) / 12) }] : []),
+        ].filter(b => b.delta !== 0) : [];
 
         return (
           <div className="mt-4 bg-white rounded-2xl border border-stone-200 p-5">
@@ -481,6 +559,22 @@
                 <p className="text-xs text-red-600 mt-1">
                   Benefits phase out faster than your wages grow.
                 </p>
+                {breakdown.length > 0 && (
+                  <div className="mt-2.5 pt-2.5 border-t border-red-200 space-y-1">
+                    {breakdown.map(({ label, delta }) => {
+                      // For ACA cost: positive delta = new/higher cost = bad
+                      // For others: negative delta = loss = bad
+                      const isLoss = label === 'ACA cost' ? delta > 0 : delta < 0;
+                      const sign   = label === 'ACA cost' ? (delta > 0 ? '+' : '−') : (delta < 0 ? '−' : '+');
+                      return (
+                        <p key={label} className={`text-xs font-medium ${isLoss ? 'text-red-600' : 'text-stone-500'}`}
+                           style={{fontVariantNumeric: 'tabular-nums'}}>
+                          {label} {sign}${Math.abs(delta).toLocaleString()}/mo
+                        </p>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
             )}
             {isBetter && (
@@ -569,15 +663,19 @@
         const canvasRef = useRef(null);
         const chartRef  = useRef(null);
 
-        const familySize    = useCell('profile', 'current', 'familySize')    ?? DEFAULTS.familySize;
-        const currentIncome = useCell('profile', 'current', 'currentIncome') ?? DEFAULTS.currentIncome;
-        const offeredIncome = useCell('profile', 'current', 'offeredIncome') ?? DEFAULTS.offeredIncome;
+        const familySize       = useCell('profile', 'current', 'familySize')       ?? DEFAULTS.familySize;
+        const currentIncome    = useCell('profile', 'current', 'currentIncome')    ?? DEFAULTS.currentIncome;
+        const offeredIncome    = useCell('profile', 'current', 'offeredIncome')    ?? DEFAULTS.offeredIncome;
+        const adultCount       = useCell('profile', 'current', 'adultCount')       ?? DEFAULTS.adultCount;
+        const hasSection8Voucher = useCell('profile', 'current', 'hasSection8Voucher') ?? DEFAULTS.hasSection8Voucher;
+
+        const opts = { adultCount: Number(adultCount), hasVoucher: !!hasSection8Voucher };
 
         const { pts, currentResult, offeredResult, safeExit, yMin, cliffAnnotation } = useMemo(() => {
-          const data = getCliffChartData(Number(familySize));
+          const data = getCliffChartData(Number(familySize), opts);
           const pts  = data.map(d => ({ x: d.income, y: d.totalEffective }));
-          const currentResult = calcEffectiveTakeHome(Number(currentIncome), Number(familySize));
-          const offeredResult = calcEffectiveTakeHome(Number(offeredIncome), Number(familySize));
+          const currentResult = calcEffectiveTakeHome(Number(currentIncome), Number(familySize), opts);
+          const offeredResult = calcEffectiveTakeHome(Number(offeredIncome), Number(familySize), opts);
 
           let safeExit = null;
           for (let i = 0; i < data.length - 2; i++) {
@@ -608,7 +706,7 @@
           }
 
           return { pts, currentResult, offeredResult, safeExit, yMin, cliffAnnotation };
-        }, [familySize, currentIncome, offeredIncome]);
+        }, [familySize, currentIncome, offeredIncome, adultCount, hasSection8Voucher]);
 
         useEffect(() => {
           if (!canvasRef.current) return;
@@ -741,19 +839,23 @@
 
       // ── ManagerBrief ──
       function ManagerBrief() {
-        const familySize    = useCell('profile', 'current', 'familySize')    ?? DEFAULTS.familySize;
-        const currentIncome = useCell('profile', 'current', 'currentIncome') ?? DEFAULTS.currentIncome;
-        const offeredIncome = useCell('profile', 'current', 'offeredIncome') ?? DEFAULTS.offeredIncome;
+        const familySize       = useCell('profile', 'current', 'familySize')       ?? DEFAULTS.familySize;
+        const currentIncome    = useCell('profile', 'current', 'currentIncome')    ?? DEFAULTS.currentIncome;
+        const offeredIncome    = useCell('profile', 'current', 'offeredIncome')    ?? DEFAULTS.offeredIncome;
+        const adultCount       = useCell('profile', 'current', 'adultCount')       ?? DEFAULTS.adultCount;
+        const hasSection8Voucher = useCell('profile', 'current', 'hasSection8Voucher') ?? DEFAULTS.hasSection8Voucher;
         const [copied, setCopied] = useState(false);
+
+        const opts = { adultCount: Number(adultCount), hasVoucher: !!hasSection8Voucher };
 
         const { current, offered, safeExit, benefitValue, diff } = useMemo(() => {
           const fs  = Number(familySize);
-          const current = calcEffectiveTakeHome(Number(currentIncome), fs);
-          const offered = calcEffectiveTakeHome(Number(offeredIncome), fs);
+          const current = calcEffectiveTakeHome(Number(currentIncome), fs, opts);
+          const offered = calcEffectiveTakeHome(Number(offeredIncome), fs, opts);
           const benefitValue = current.snapValue + current.medicaidValue
             + current.section8Value + current.childcareValue - current.acaCost;
           const diff = offered.totalEffective - current.totalEffective;
-          const data = getCliffChartData(fs);
+          const data = getCliffChartData(fs, opts);
           let safeExit = null;
           for (let i = 0; i < data.length - 2; i++) {
             if (data[i].totalEffective > current.totalEffective + 2000 &&
@@ -764,7 +866,7 @@
             }
           }
           return { current, offered, safeExit, benefitValue, diff };
-        }, [familySize, currentIncome, offeredIncome]);
+        }, [familySize, currentIncome, offeredIncome, adultCount, hasSection8Voucher]);
 
         const isWorse = diff < -500;
         const line1 = `Currently earning ${fmtDollars(Number(currentIncome))}/yr with ${fmtDollars(Math.abs(benefitValue))} in annual benefit value — ${fmtDollars(current.totalEffective)} total effective`;
