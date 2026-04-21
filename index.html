@@ -8,6 +8,7 @@
     <script>globalThis.process = { env: { NODE_ENV: "production" } };</script>
     <script src="https://unpkg.com/@babel/standalone@7.26.0/babel.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
     <script type="importmap">
       {
         "imports": {
@@ -299,7 +300,7 @@
       import { createLocalPersister } from 'tinybase/persisters/persister-browser';
       import { Provider, useCell } from 'tinybase/ui-react';
 
-      const { useState, useEffect, useMemo } = React;
+      const { useState, useEffect, useMemo, useRef } = React;
 
       // ── Store (module-level singleton) ──
       const store = createStore();
@@ -493,6 +494,251 @@
         );
       }
 
+      // ── Chart.js plugin: zone fills + vertical income markers ──
+      const cliffChartPlugin = {
+        id: 'cliffChartPlugin',
+        beforeDatasetsDraw(chart) {
+          const { ctx, chartArea, scales } = chart;
+          const pts = chart.data.datasets[0].data;
+          if (!pts || pts.length < 2) return;
+          for (let i = 0; i < pts.length - 1; i++) {
+            const dy = pts[i + 1].y - pts[i].y;
+            // green = rising, red = cliff drop, amber = flat/transitional
+            ctx.fillStyle = dy > 500
+              ? 'rgba(220,252,231,0.28)'
+              : dy < -200
+                ? 'rgba(254,226,226,0.72)'
+                : 'rgba(231,229,228,0.18)';
+            const x0 = scales.x.getPixelForValue(pts[i].x);
+            const x1 = scales.x.getPixelForValue(pts[i + 1].x);
+            ctx.fillRect(x0, chartArea.top, x1 - x0, chartArea.height);
+          }
+        },
+        afterDatasetsDraw(chart, _args, opts) {
+          const { ctx, chartArea, scales } = chart;
+          (opts.lines || []).forEach(({ x, color, label, dash }) => {
+            if (x < 0 || x > 120000) return;
+            const xpx = scales.x.getPixelForValue(x);
+            ctx.save();
+            ctx.strokeStyle = color;
+            ctx.lineWidth = 1.5;
+            ctx.setLineDash(dash || [5, 4]);
+            ctx.beginPath();
+            ctx.moveTo(xpx, chartArea.top);
+            ctx.lineTo(xpx, chartArea.bottom);
+            ctx.stroke();
+            if (label) {
+              ctx.setLineDash([]);
+              ctx.font = 'bold 10px system-ui,sans-serif';
+              const tw = ctx.measureText(label).width;
+              const pad = 4, lh = 14;
+              const lx = Math.min(Math.max(xpx - tw / 2 - pad, chartArea.left), chartArea.right - tw - pad * 2);
+              ctx.fillStyle = 'rgba(255,255,255,0.9)';
+              ctx.fillRect(lx, chartArea.top + 3, tw + pad * 2, lh);
+              ctx.fillStyle = color;
+              ctx.fillText(label, lx + pad, chartArea.top + lh);
+            }
+            ctx.restore();
+          });
+
+          // Cliff drop annotation — biggest single-step loss
+          if (opts.cliffAnnotation && opts.cliffAnnotation.dy < -500) {
+            const { midX, bottomY, dropAmt } = opts.cliffAnnotation;
+            if (midX >= 0 && midX <= 120000) {
+              const xpx = scales.x.getPixelForValue(midX);
+              const ypx = scales.y.getPixelForValue(bottomY);
+              const label = '−$' + dropAmt.toLocaleString();
+              ctx.save();
+              ctx.font = 'bold 11px system-ui,sans-serif';
+              const tw = ctx.measureText(label).width;
+              const pad = 5, lh = 16;
+              const lx = Math.min(Math.max(xpx - tw / 2 - pad, chartArea.left + 2), chartArea.right - tw - pad * 2 - 2);
+              const ly = Math.min(ypx + 6, chartArea.bottom - lh - 4);
+              ctx.fillStyle = 'rgba(220,38,38,0.12)';
+              ctx.fillRect(lx, ly, tw + pad * 2, lh);
+              ctx.fillStyle = '#DC2626';
+              ctx.fillText(label, lx + pad, ly + lh - 3);
+              ctx.restore();
+            }
+          }
+        },
+      };
+
+      // ── CliffChart ──
+      function CliffChart() {
+        const canvasRef = useRef(null);
+        const chartRef  = useRef(null);
+
+        const familySize    = useCell('profile', 'current', 'familySize')    ?? DEFAULTS.familySize;
+        const currentIncome = useCell('profile', 'current', 'currentIncome') ?? DEFAULTS.currentIncome;
+        const offeredIncome = useCell('profile', 'current', 'offeredIncome') ?? DEFAULTS.offeredIncome;
+
+        const { pts, currentResult, offeredResult, safeExit, yMin, cliffAnnotation } = useMemo(() => {
+          const data = getCliffChartData(Number(familySize));
+          const pts  = data.map(d => ({ x: d.income, y: d.totalEffective }));
+          const currentResult = calcEffectiveTakeHome(Number(currentIncome), Number(familySize));
+          const offeredResult = calcEffectiveTakeHome(Number(offeredIncome), Number(familySize));
+
+          let safeExit = null;
+          for (let i = 0; i < data.length - 2; i++) {
+            if (data[i].totalEffective > currentResult.totalEffective + 2000 &&
+                data[i+1].totalEffective >= data[i].totalEffective - 500 &&
+                data[i+2].totalEffective >= data[i+1].totalEffective - 500) {
+              safeExit = data[i].income;
+              break;
+            }
+          }
+
+          // Y-axis min: zoom to relevant range
+          const minY = Math.min(...pts.map(p => p.y));
+          const yMin = Math.max(0, Math.floor((minY - 6000) / 5000) * 5000);
+
+          // Biggest single-step cliff drop for annotation
+          let cliffAnnotation = null;
+          for (let i = 0; i < pts.length - 1; i++) {
+            const dy = pts[i+1].y - pts[i].y;
+            if (!cliffAnnotation || dy < cliffAnnotation.dy) {
+              cliffAnnotation = {
+                midX: (pts[i].x + pts[i+1].x) / 2,
+                bottomY: pts[i+1].y,
+                dy,
+                dropAmt: Math.round(Math.abs(dy)),
+              };
+            }
+          }
+
+          return { pts, currentResult, offeredResult, safeExit, yMin, cliffAnnotation };
+        }, [familySize, currentIncome, offeredIncome]);
+
+        useEffect(() => {
+          if (!canvasRef.current) return;
+          if (chartRef.current) chartRef.current.destroy();
+
+          const lines = [
+            { x: Number(currentIncome), color: '#2563EB', label: 'You now', dash: [6, 4] },
+            { x: Number(offeredIncome), color: '#7C3AED', label: 'Offer',   dash: [6, 4] },
+          ];
+          if (safeExit) lines.push({ x: safeExit, color: '#16A34A', label: 'Safe exit', dash: [4, 3] });
+
+          chartRef.current = new Chart(canvasRef.current, {
+            type: 'line',
+            data: {
+              datasets: [{
+                data: pts,
+                borderWidth: 2.5,
+                pointRadius: 0,
+                pointHoverRadius: 5,
+                pointHoverBackgroundColor: '#44403C',
+                tension: 0,
+                fill: false,
+                segment: {
+                  borderColor: ctx => {
+                    const dy = ctx.p1.parsed.y - ctx.p0.parsed.y;
+                    if (dy < -200) return '#DC2626'; // cliff drop
+                    if (dy > 500)  return '#16A34A'; // benefit gains
+                    return '#78716C';                // neutral wage growth
+                  },
+                },
+              }],
+            },
+            options: {
+              responsive: true,
+              maintainAspectRatio: true,
+              aspectRatio: 2,
+              animation: false,
+              plugins: {
+                legend: { display: false },
+                tooltip: {
+                  callbacks: {
+                    title: ctx => '$' + Number(ctx[0].parsed.x).toLocaleString() + '/yr wages',
+                    label: ctx => 'Effective take-home: $' + Math.round(ctx.parsed.y).toLocaleString(),
+                  },
+                },
+                cliffChartPlugin: { lines, cliffAnnotation },
+              },
+              scales: {
+                x: {
+                  type: 'linear',
+                  min: 0,
+                  max: 120000,
+                  ticks: {
+                    stepSize: 20000,
+                    callback: v => '$' + (v / 1000) + 'k',
+                    font: { size: 11, family: 'system-ui' },
+                    color: '#A8A29E',
+                    maxTicksLimit: 7,
+                  },
+                  grid: { color: 'rgba(231,229,228,0.6)' },
+                  border: { display: false },
+                },
+                y: {
+                  min: yMin,
+                  ticks: {
+                    callback: v => '$' + (v / 1000).toFixed(0) + 'k',
+                    font: { size: 11, family: 'system-ui' },
+                    color: '#A8A29E',
+                    maxTicksLimit: 6,
+                  },
+                  grid: { color: 'rgba(231,229,228,0.6)' },
+                  border: { display: false },
+                },
+              },
+            },
+            plugins: [cliffChartPlugin],
+          });
+
+          return () => { if (chartRef.current) chartRef.current.destroy(); };
+        }, [pts, currentIncome, offeredIncome, safeExit, yMin, cliffAnnotation]);
+
+        const diff    = offeredResult.totalEffective - currentResult.totalEffective;
+        const isWorse = diff < -500;
+
+        return (
+          <div className="mt-4 bg-white rounded-2xl border border-stone-200 p-5">
+            <h2 className="text-base font-semibold text-stone-800 mb-3">
+              Benefits cliff — Ohio, {Number(familySize)} {Number(familySize) === 1 ? 'person' : 'people'}
+            </h2>
+            <canvas ref={canvasRef} />
+
+            {/* Marker legend */}
+            <div className="flex flex-wrap gap-x-4 gap-y-1 mt-3">
+              {[
+                { color: 'bg-blue-600',   label: 'You now' },
+                { color: 'bg-violet-600', label: 'Offer' },
+                ...(safeExit ? [{ color: 'bg-green-600', label: 'Safe exit' }] : []),
+              ].map(({ color, label }) => (
+                <span key={label} className="flex items-center gap-1.5 text-xs text-stone-500">
+                  <span className={`inline-block w-3 h-0.5 rounded ${color}`} />
+                  {label}
+                </span>
+              ))}
+            </div>
+
+            {/* Cliff alert */}
+            {isWorse && (
+              <div className="mt-4 p-3.5 bg-red-50 rounded-xl border border-red-200">
+                <p className="text-sm font-semibold text-red-700">
+                  ⚠ Taking this offer costs you {fmtDollars(Math.abs(diff))}/yr
+                </p>
+                <p className="text-xs text-red-600 mt-1">Benefits phase out faster than your wages grow.</p>
+              </div>
+            )}
+
+            {/* Safe exit callout */}
+            {safeExit && (
+              <div className="mt-3 p-3.5 bg-green-50 rounded-xl border border-green-200">
+                <p className="text-sm font-semibold text-green-700">
+                  Safe exit: ${safeExit.toLocaleString()}/yr
+                </p>
+                <p className="text-xs text-green-700 mt-1">
+                  First income where your total value clearly exceeds what you have today.
+                </p>
+              </div>
+            )}
+          </div>
+        );
+      }
+
       // ── App ──
       function App() {
         useEffect(() => {
@@ -506,15 +752,22 @@
           <Provider store={store}>
             <div className="min-h-screen bg-stone-50">
               <TrustBadge />
-              <div className="max-w-xl mx-auto px-4 pt-4 pb-16">
+              <div className="max-w-5xl mx-auto px-4 pt-4 pb-6">
                 <div className="text-center pt-4 pb-2">
                   <h1 className="text-2xl font-extrabold text-stone-900">CliffCheck</h1>
                   <p className="text-sm text-stone-500 mt-1">
                     See the real cost of a raise — including what you'd lose in benefits
                   </p>
                 </div>
-                <ProfileForm />
-                <LiveSummary />
+                <div className="md:grid md:grid-cols-[2fr_3fr] md:gap-6 md:items-start mt-2">
+                  <div>
+                    <ProfileForm />
+                    <LiveSummary />
+                  </div>
+                  <div>
+                    <CliffChart />
+                  </div>
+                </div>
               </div>
             </div>
           </Provider>
