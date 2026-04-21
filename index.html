@@ -1063,6 +1063,88 @@
         );
       }
 
+      // ── ShareableCard ──
+      function ShareableCard() {
+        const familySize         = useCell('profile', 'current', 'familySize')         ?? DEFAULTS.familySize;
+        const currentIncome      = useCell('profile', 'current', 'currentIncome')      ?? DEFAULTS.currentIncome;
+        const offeredIncome      = useCell('profile', 'current', 'offeredIncome')      ?? DEFAULTS.offeredIncome;
+        const adultCount         = useCell('profile', 'current', 'adultCount')         ?? DEFAULTS.adultCount;
+        const hasSection8Voucher = useCell('profile', 'current', 'hasSection8Voucher') ?? DEFAULTS.hasSection8Voucher;
+        const pfccEnrolled       = useCell('profile', 'current', 'pfccEnrolled')       ?? DEFAULTS.pfccEnrolled;
+
+        const opts = { adultCount: Number(adultCount), hasVoucher: !!hasSection8Voucher, pfccEnrolled: !!pfccEnrolled };
+
+        const current = useMemo(
+          () => calcEffectiveTakeHome(Number(currentIncome), Number(familySize), opts),
+          [currentIncome, familySize, adultCount, hasSection8Voucher, pfccEnrolled]
+        );
+        const offered = useMemo(
+          () => calcEffectiveTakeHome(Number(offeredIncome), Number(familySize), opts),
+          [offeredIncome, familySize, adultCount, hasSection8Voucher, pfccEnrolled]
+        );
+
+        const diff = offered.totalEffective - current.totalEffective;
+        const isWorse = diff < -500;
+        const raiseAmount = Number(offeredIncome) - Number(currentIncome);
+
+        const safeExit = useMemo(() => {
+          const data = getCliffChartData(Number(familySize), opts);
+          const baseline = current.totalEffective;
+          for (let i = data.length - 1; i >= 0; i--) {
+            if (data[i].totalEffective < baseline) {
+              if (i + 1 < data.length && data[i + 1].income > Number(currentIncome)) {
+                return data[i + 1].income;
+              }
+              break;
+            }
+          }
+          return null;
+        }, [familySize, currentIncome, adultCount, hasSection8Voucher, pfccEnrolled]);
+
+        if (!Number(currentIncome) || !Number(offeredIncome) || !isWorse) return null;
+
+        const children = Math.max(0, Number(familySize) - Number(adultCount));
+        const familyDesc = Number(adultCount) === 1
+          ? `Single parent${children > 0 ? `, ${children} ${children === 1 ? 'child' : 'children'}` : ''}`
+          : `${Number(adultCount)} adults${children > 0 ? `, ${children} ${children === 1 ? 'child' : 'children'}` : ''}`;
+
+        return (
+          <div className="mt-6 rounded-2xl overflow-hidden border-2 border-amber-200" style={{background:'#FFF7ED'}}>
+            <div className="px-5 pt-4 pb-3 border-b border-amber-200 flex items-center justify-between">
+              <div>
+                <p className="text-xs font-bold text-amber-700 uppercase tracking-wide leading-none">Share your cliff</p>
+                <p className="text-xs text-stone-400 mt-0.5">Screenshot this to show the math</p>
+              </div>
+              <span className="text-lg">📸</span>
+            </div>
+            <div className="px-5 py-5">
+              <p className="text-xs text-stone-500 mb-4">Ohio · {familyDesc} · {fmtDollars(Number(currentIncome))} wages, offered {fmtDollars(Number(offeredIncome))}</p>
+              <div className="mb-5">
+                <p className="text-xs font-semibold text-stone-400 uppercase tracking-wide mb-1.5">The catch</p>
+                <p className="text-4xl font-extrabold text-red-600 leading-none" style={{fontVariantNumeric:'tabular-nums'}}>
+                  −{fmtDollars(Math.abs(diff))}/yr
+                </p>
+                <p className="text-sm text-stone-700 mt-2 leading-snug">
+                  {raiseAmount > 0
+                    ? <>A {fmtDollars(raiseAmount)} raise leaves you {fmtDollars(Math.abs(diff))} poorer — lost benefits outweigh the wage increase.</>
+                    : <>This offer makes you {fmtDollars(Math.abs(diff))} worse off when you count lost benefits.</>}
+                </p>
+              </div>
+              {safeExit && (
+                <div className="pt-4 border-t border-amber-200">
+                  <p className="text-xs font-semibold text-stone-400 uppercase tracking-wide mb-1.5">Your way out</p>
+                  <p className="text-3xl font-extrabold text-green-700 leading-none" style={{fontVariantNumeric:'tabular-nums'}}>
+                    {fmtDollars(safeExit)}/yr
+                  </p>
+                  <p className="text-sm text-stone-600 mt-1.5">The first income where you clear every cliff in Ohio.</p>
+                </div>
+              )}
+              <p className="text-xs text-stone-300 mt-5 text-center font-medium tracking-wide">CliffCheck</p>
+            </div>
+          </div>
+        );
+      }
+
       // ── App ──
       function App() {
         useEffect(() => {
@@ -1092,6 +1174,7 @@
                     <LiveSummary />
                   </div>
                 </div>
+                <ShareableCard />
                 <ManagerBrief />
                 <SourcesFooter />
               </div>
