@@ -1,78 +1,96 @@
 # CliffCheck — Benefits Cliff Navigator
 
+> Last reviewed: Cycle 4 — 21-04-2026
+
 ## Problem Statement
-Millions of working-class Americans are trapped in benefits cliffs — income thresholds where a modest raise causes a disproportionate loss of government benefits (SNAP, Medicaid, Section 8, childcare subsidies). A $4,000 raise can cost $10,000+ in lost benefits. The math is deliberately hidden by fragmented benefit systems, and no consumer-facing tool exists to reveal it. This is the #1 mechanism that keeps the "permanent underclass" permanent.
+Millions of working-class Americans are trapped in benefits cliffs — income thresholds where a modest raise causes a disproportionate loss of government benefits (SNAP, Medicaid, Section 8, childcare subsidies). A $4,000 raise can cost $24,000+ in lost benefits. The math is deliberately hidden by fragmented benefit systems, and no consumer-facing tool exists to reveal it. This is the #1 mechanism that keeps the "permanent underclass" permanent.
 
 ## Solution
 A phone-first web app that lets users input their family situation and current benefits, then visualizes exactly where the cliffs are — and what to do about them.
 
 **Core flow:**
-1. User enters: state, family size, current income, current benefits (SNAP/Medicaid/Section 8/childcare subsidy)
-2. App calculates effective take-home (wages + benefits value) across the full income spectrum
+1. User enters: state, family size, adult count, current income, current benefits (SNAP/Medicaid/Section 8/childcare subsidy)
+2. Real-time sliders update the cliff chart as income changes
 3. Interactive chart reveals cliff points where total compensation drops
-4. Actionable recommendations: "Don't accept. The next safe exit is $X. Here are 3 paths to get there."
-5. Shareable one-page brief for manager conversations
+4. Safe exit income displayed as hero output with plain-English verdict sentence
+5. Shareable manager brief for salary negotiation conversations
 
-## Demo Persona
-**Keisha** — Warehouse worker in Ohio, two kids, makes $54k all-in after benefits. Offered promotion to $70k.
-- Current effective take-home: $58k (wages + SNAP + childcare subsidy + Medicaid)
-- After promotion: $64k wages but -$10k in lost benefits and new ACA premiums
-- Net: she's worse off by $4k taking the raise
-- Recommendation: negotiate to $82k+ (clears every cliff in OH), or use free state workforce program to upskill to $85k in 14 months
+## Demo Scenario
+**Ohio warehouse worker** — single parent, one child, $44k wages. Offered promotion to $54k.
+- Current effective take-home: ~$78k (wages + SNAP + childcare subsidy + Medicaid)
+- After promotion: ~$51k effective — loses SNAP, Medicaid, PFCC childcare subsidy, incurs ACA premiums
+- Net: $10k raise makes them ~$27k poorer in effective take-home
+- Safe exit: $86k+ (first income past all Ohio benefit cliffs)
+- The $44k→$48k range is the danger zone: a $4k raise drops effective income by $24k+ due to PFCC childcare cliff
 
 ## Target Users
-**Primary:** Working-class Americans navigating benefits cliffs — warehouse workers, retail staff, gig workers, single parents
-**Secondary:** Social workers, benefits counselors, HR professionals advising employees
+**Primary:** Working-class Americans earning $40k–$80k navigating benefits cliffs — warehouse workers, retail staff, gig workers, single parents. Mobile-primary, financially stressed, justifiably wary of cloud apps with financial data.
+**Secondary:** Social workers, benefits counselors, HR professionals advising employees — need a credible, shareable tool to explain cliff math to workers and management.
 
 ## Constraints
 - **Stack:** VibesOS (React + TinyBase + Tailwind, single HTML file, no backend)
 - **Privacy:** Local-first — sensitive financial data stays on-device (TinyBase). This is a trust advantage for the target audience.
-- **Scope:** 2-3 US states for demo: Ohio (OH), California (CA), Texas (TX)
-- **Timeline:** 5 days (April 20-25, 2026) — VibeJam hackathon
+- **Scope:** Ohio complete. TX next, then CA, FL, NY and others in post-hackathon cycles.
+- **Timeline:** April 20-25, 2026 — VibeJam hackathon
 - **License:** Open source required
 
+## What's Been Built (Cycle 4 — April 2026)
+- **Ohio benefit engine** — SNAP, Medicaid (expansion), ACA premium tax credits, Section 8 HCV (voucher holder and non-holder), PFCC childcare (enrolled and non-enrolled). Pure JS, sources cited, validated against demo scenario.
+- **Phone-first input form** — TinyBase-persisted profile: state, family size, adult count, income sliders, benefit toggles
+- **Cliff chart** — Chart.js, $0–$120K at $1K increments. Real-time slider interaction. Per-income-point tooltips with full benefit breakdown. Cliff alert with breakdown detail.
+- **Safe exit hero** — Elevated above the fold. Plain-English verdict sentence ("Your $10k raise makes you $27k poorer").
+- **Manager brief** — Copy-to-clipboard: current effective, offered effective, safe-exit target, negotiation path.
+- **Source references** — Collapsible links to 6 Ohio government sources.
+- **Deploy** — Cloudflare Workers via VibesOS pipeline.
+
+## What's Remaining Before Submission
+- Demo mode (pre-loaded scenario for instant judge evaluation)
+- Texas state module (second state proves architecture generalizability)
+- UI dedup (remove duplicate breakdown from verdict card)
+- Visual polish pass (.impeccable.md anti-patterns check)
+- Submission package (deploy verification, README, VibeJam form, optional video)
+
 ## Judging Criteria (1-5 each)
-1. **Design** — Phone-first, accessible, empathetic. Not a government form. Warm, human UI.
-2. **Functionality** — Real benefit calculations, interactive visualization, actionable output (manager brief)
-3. **Market viability** — No consumer product does this. Clear path to revenue (premium states, employer partnerships, benefits counselor tools)
-4. **Creativity** — Reveals hidden truth that affects millions. The "aha moment" when you see the cliff chart.
-5. **Technical sophistication** — Local-first privacy model, benefit calculation engine, state-specific rule system, PDF/share artifact generation
-
-## Data Sources
-- State benefits eligibility thresholds (public, state websites)
-- Federal poverty guidelines (HHS)
-- SNAP income limits and benefit tables (USDA)
-- Medicaid eligibility by state (CMS)
-- ACA marketplace calculator logic
-- Section 8 income limits (HUD)
-- Childcare subsidy thresholds (state-specific)
-- BLS wage data for career path recommendations
-
-## Architecture
-- **Frontend:** React (JSX + Babel) via VibesOS template
-- **Data store:** TinyBase (local-first, on-device)
-- **Styling:** Tailwind CSS
-- **Benefit engine:** Pure JS calculation module per state (OH, CA, TX)
-- **Visualization:** Chart library (lightweight, embeddable — Chart.js or similar via CDN)
-- **Output:** Shareable artifact (downloadable one-pager / screenshot-friendly summary)
-- **Deploy:** Cloudflare Workers via VibesOS deploy pipeline
+1. **Design** — Phone-first, accessible, empathetic. Warm stone/amber palette. Not a government form.
+2. **Functionality** — Real FY2026 benefit calculations, real-time interactive cliff chart, actionable safe-exit output
+3. **Market viability** — No consumer product does this. Revenue paths: premium states, employer tools, HR integrations, social worker licensing
+4. **Creativity** — Reveals the hidden truth that a $4k raise can cost $24k+. The "oh shit" cliff chart moment.
+5. **Technical sophistication** — Local-first privacy model, state rule engine, source-verified data, real-time slider interaction
 
 ## Key Differentiators
 - **Nobody has built this consumer-facing.** Government tools show individual program eligibility, not aggregate effective income.
 - **Local-first = trust.** Target users are justifiably wary of sharing financial data with apps.
 - **Actionable, not informational.** Don't just show the cliff — show the path around it with the manager brief.
-- **Visceral demo.** The cliff chart is an "oh shit" moment. Judges will sit up.
+- **Visceral output.** The cliff chart is an "oh shit" moment. The drop is real and measured.
+
+## Data Sources
+- SNAP income limits and benefit tables (USDA FY2026)
+- Medicaid eligibility — Ohio expansion (CMS)
+- ACA marketplace premium tax credit logic (Healthcare.gov)
+- Section 8 / HCV payment standards (HUD)
+- PFCC childcare subsidy thresholds (Ohio ODJFS)
+- Federal poverty guidelines (HHS FY2026)
+
+## Architecture
+- **Frontend:** React 19 (JSX + Babel in-browser transpilation)
+- **Data store:** TinyBase (local-first, persisted to localStorage)
+- **Styling:** Tailwind CSS (Play CDN)
+- **Benefit engine:** Pure JS state modules namespaced by state (OH, TX, CA...)
+- **Visualization:** Chart.js via CDN
+- **Deploy:** Cloudflare Workers via VibesOS pipeline
 
 ## Live URL
-
 **https://cathalos92.github.io/cliffcheck/**
-Deployed via GitHub Pages on main branch. (VibesOS Pocket ID auth unavailable — email delivery failed during hackathon.)
 
 ## Success Criteria (Hackathon)
-- [x] Working demo with at least Ohio state calculations
-- [x] Interactive cliff visualization chart
-- [x] Keisha demo persona flows end-to-end
-- [x] Shareable manager brief artifact
+- [x] Working Ohio benefit engine — SNAP, Medicaid, ACA, Section 8, PFCC childcare
+- [x] Interactive cliff chart with real-time sliders
+- [x] Demo scenario flows end-to-end showing $27k effective loss
+- [x] Shareable manager brief with copy-to-clipboard
+- [x] Safe exit hero number above the fold
 - [x] Deployed and accessible via URL
 - [x] Phone-first responsive design
-- [ ] Second state (CA or TX) calculations
+- [ ] Demo mode (pre-loaded scenario)
+- [ ] Texas state calculations
+- [ ] Visual polish pass
+- [ ] Submission package
