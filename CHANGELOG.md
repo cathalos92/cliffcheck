@@ -1,25 +1,14 @@
 # Changelog
 
-## v0.1.0 — Initial Release
+## v0.2.0 — 2026-04-21T02:13:06.535Z
 
-PAPI MCP Server — the AI-powered project planning framework.
-
-### Commands
-- **setup** — Initialise a new PAPI project with Product Brief generation
-- **plan** — Run cycle planning with embedded BUILD HANDOFFs (Bootstrap + Full modes)
-- **build_list / build_describe / build_execute / build_cancel** — Manage build tasks
-- **board_view / board_deprioritise / board_archive** — View and manage the Board
-- **strategy_review / strategy_change** — Run Strategy Reviews and apply strategic changes
-- **review_list / review_submit** — Human review loop for handoffs and builds
-- **idea** — Capture ideas as backlog tasks for future triage
-- **health** — Cycle Health Summary dashboard
-- **release** — Cut versioned releases with git tags and changelogs
-
-### Features
-- .md file persistence in .papi/ directory
-- Bootstrap + Full planning modes with Anthropic API integration
-- Embedded BUILD HANDOFFs with dual write-back build reports
-- Auto-commit and auto-PR after builds
-- Board corrections and Active Decision persistence
-- Single-purpose MCP tools for optimal LLM tool selection
-- Consistent error handling across all tools
+- ab5dfa2 docs: add live URL and tick success criteria
+- 619b1e4 feat(task-9): Add manager brief component with copy-to-clipboard (#5)
+- 36e12f3 Merge pull request #4 from cathalos92/feat/task-8
+- dfe87a3 feat(task-8): Build cliff chart visualization with Chart.js
+- 5c051b0 Merge pull request #3 from cathalos92/feat/task-7
+- 356bc6c feat(task-7): Build phone-first input form with TinyBase persistence
+- 80be1b3 feat: add CliffCheck design brain (.impeccable.md) and CLAUDE.md pointer
+- 9e7680a chore: update PAPI_USER_ID to real user, add Cycle 1 dogfood entry
+- 3b93ec2 feat(task-3): Validate engine output against Keisha persona
+- 0dcbda6 feat(task-3): Validate engine output against Keisha persona
