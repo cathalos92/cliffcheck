@@ -18,3 +18,4 @@ Thumbs.db
 
 # PAPI local files (DB is source of truth)
 .papi/
+.mcp.json
