@@ -138,3 +138,33 @@ Pausing PAPI-mediated planning entirely. Two options surviving:
 5. **Document the hosted-vs-local storage split explicitly**, or unify them.
 
 ---
+
+## Cycle 1 — Bootstrap — 2026-04-21
+
+### Cycle Metrics
+- **Mode:** Bootstrap
+- **Tasks planned:** 3
+- **Tasks built:** 3
+- **Effort estimates vs actual:** 3/3 matched (task-3 came in S vs estimated M — validation was simpler once Node test confirmed the numbers)
+- **Rework needed:** None — task-3 handoff parameters required correction ($54K → $44K Keisha wage) but was caught before building
+
+### Friction Points
+
+- **P2 MEDIUM — Handoff parameters not updated when upstream task contradicts them.** task-2 build report explicitly flagged that the Keisha demo wage should be $44K (not $54K from product brief), and this appeared in task-3's RECENT MODULE CONTEXT. But the task-3 handoff itself still used the old `calcEffectiveTakeHome(54000, 4)` call and the old assertion ranges. The handoff was generated at plan time and not regenerated when task-2 contradicted the assumption. Result: task-3 builder had to correct parameters manually. This will happen on any project where brief numbers are aspirational — which is common early on.
+  **Suggested fix:** After `build_execute` complete, if `surprises` contains corrections that affect downstream handoffs in the same cycle, flag them as needing handoff review rather than leaving them stale.
+
+- **P3 LOW — PR merge error on shared branch task.** task-3 was placed on `feat/cycle-1-core` (shared cycle branch), but `review_submit` attempted to merge `feat/task-3` which didn't exist. Auto-release still succeeded and v0.1.0 was tagged. Cosmetic but noisy.
+
+### Methodology Signals
+
+- **Research → Build → Validate 3-task structure worked perfectly for an accuracy-critical feature.** Clean ground-truth document (ohio-benefit-rules.md) was referenced by both engine and validation. When the engine found a calculation error (SNAP cliff at $44,671, not $53,100), it corrected the doc — a tidy feedback loop that would have been muddier if both were in one task.
+- **RECENT MODULE CONTEXT in handoff was genuinely useful.** task-2's architecture notes appeared verbatim in task-3's handoff. The Keisha wage correction was visible — builder had to notice and act on it.
+- **Validation as page-load regression harness is the right pattern for a hackathon.** No test runner setup; `validateKeisha()` IIFE surfaces engine regressions during Phase 2 development immediately in the browser console.
+
+### Commercial / Roadmap Signals
+
+- **The engine's real numbers are more dramatic than the brief implied.** A $4K raise from $44K to $48K can cost $24K in effective income — sharper than the "$10K worse off" narrative in the brief. Real data often turns out to be more extreme than marketing copy.
+- **Competitive landscape is clear.** Fed Atlanta CLIFF Tool is the only serious comparable but is built for workforce counselors, not consumers. The pitch: "professionals have tools; nobody built it for the person on the other side of the cliff."
+- **Cycle 1 velocity (3 tasks, ~2–3 hours) reasonable for a bootstrap cycle** focused on data accuracy. Phase 2 (input form + cliff chart UI) is the first judge-visible output.
+
+---
