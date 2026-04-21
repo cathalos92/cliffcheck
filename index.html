@@ -387,6 +387,34 @@
         );
       }
 
+      // ── IncomeSlider ──
+      function IncomeSlider({ id, value, onChange }) {
+        return (
+          <div>
+            <p className="text-2xl font-extrabold text-stone-900 leading-none mb-2"
+               style={{fontVariantNumeric:'tabular-nums'}}>
+              {fmtDollars(value)}/yr
+            </p>
+            <div className="py-2.5">
+              <input
+                id={id}
+                type="range"
+                min="0"
+                max="120000"
+                step="1000"
+                value={value}
+                onChange={e => onChange(Number(e.target.value))}
+                className="w-full accent-amber-500 cursor-pointer"
+                style={{height:'6px'}}
+              />
+            </div>
+            <div className="flex justify-between text-xs text-stone-400 -mt-1">
+              <span>$0</span><span>$60k</span><span>$120k</span>
+            </div>
+          </div>
+        );
+      }
+
       // ── ProfileForm ──
       function ProfileForm() {
         const familySize       = useCell('profile', 'current', 'familySize')       ?? DEFAULTS.familySize;
@@ -446,15 +474,14 @@
             </div>
 
             {/* Current wages */}
-            <div className="mb-4">
+            <div className="mb-5">
               <label htmlFor="currentIncome" className="block text-sm font-medium text-stone-700 mb-1.5">
                 Current annual wages
               </label>
-              <CurrencyInput
+              <IncomeSlider
                 id="currentIncome"
-                value={currentIncome}
+                value={Number(currentIncome)}
                 onChange={v => store.setCell('profile', 'current', 'currentIncome', v)}
-                placeholder="e.g. $44,000"
               />
             </div>
 
@@ -463,11 +490,10 @@
               <label htmlFor="offeredIncome" className="block text-sm font-medium text-stone-700 mb-1.5">
                 Offered or target annual wages
               </label>
-              <CurrencyInput
+              <IncomeSlider
                 id="offeredIncome"
-                value={offeredIncome}
+                value={Number(offeredIncome)}
                 onChange={v => store.setCell('profile', 'current', 'offeredIncome', v)}
-                placeholder="e.g. $70,000"
               />
             </div>
 
