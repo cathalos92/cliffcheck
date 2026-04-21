@@ -63,11 +63,16 @@ A phone-first web app that lets users input their family situation and current b
 - **Actionable, not informational.** Don't just show the cliff — show the path around it with the manager brief.
 - **Visceral demo.** The cliff chart is an "oh shit" moment. Judges will sit up.
 
+## Live URL
+
+**https://cathalos92.github.io/cliffcheck/**
+Deployed via GitHub Pages on main branch. (VibesOS Pocket ID auth unavailable — email delivery failed during hackathon.)
+
 ## Success Criteria (Hackathon)
-- [ ] Working demo with at least Ohio state calculations
-- [ ] Interactive cliff visualization chart
-- [ ] Keisha demo persona flows end-to-end
-- [ ] Shareable manager brief artifact
-- [ ] Deployed and accessible via URL
-- [ ] Phone-first responsive design
+- [x] Working demo with at least Ohio state calculations
+- [x] Interactive cliff visualization chart
+- [x] Keisha demo persona flows end-to-end
+- [x] Shareable manager brief artifact
+- [x] Deployed and accessible via URL
+- [x] Phone-first responsive design
 - [ ] Second state (CA or TX) calculations
