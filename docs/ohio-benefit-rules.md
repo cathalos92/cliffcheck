@@ -172,8 +172,8 @@ Ohio-specific SLCSP varies by county. Representative estimate for Ohio (central/
 - At income $1 above $132,000: family must pay full ~$25,200/year premium
 - This is a genuine **hard cliff** — a small income increase eliminates thousands in subsidy
 
-### Modeling Note for Keisha ($54K → $82K range)
-The 400% FPL cliff ($132K) is above Keisha's relevant income range. The relevant ACA event for Keisha is the **Medicaid exit at 138% FPL ($45,540)**:
+### Modeling Note for Demo Scenario ($54K → $82K range)
+The 400% FPL cliff ($132K) is above the demo scenario's relevant income range. The relevant ACA event is the **Medicaid exit at 138% FPL ($45,540)**:
 - Below $45,540: Medicaid (effectively free)
 - Above $45,540: must buy ACA marketplace coverage
 - At $54,000 income: family of 4 is at 163% FPL → expected contribution ≈ 5.6% of income ≈ $3,024/year for benchmark premium; PTC = $25,200 - $3,024 = $22,176 → net cost ~$3,024/year
@@ -218,7 +218,7 @@ PFCC pays up to the 75th percentile of county market rates. Representative annua
 - 1 toddler/preschooler: ~$10,000–$14,000/year
 - 2 children (school-age + toddler): **~$18,000–$22,000/year**
 
-**CliffCheck engine default for Keisha (2 children): $18,000/year full benefit when income ≤145% FPL.**
+**CliffCheck engine default for demo scenario (2 children): $18,000/year full benefit when income ≤145% FPL.**
 
 ### Cliff Point — Family of 4
 - **Hard entry cliff at 145% FPL = $47,850/year** — no new enrollment above this
@@ -260,13 +260,13 @@ tenant_share = 0.30 × adjusted_monthly_income
 voucher_value = payment_standard - tenant_share
 ```
 
-At income $54,000/year (Keisha baseline without voucher):
+At income $54,000/year (demo scenario baseline without voucher):
 - Monthly: $4,500
 - Tenant share: $4,500 × 0.30 = $1,350
 - Voucher value (3BR): $1,750 − $1,350 = **$400/month = $4,800/year**
 
 ### CliffCheck Modeling Assumption
-**Section 8 is modeled as NOT ACTIVE for the default Keisha persona.**
+**Section 8 is modeled as NOT ACTIVE for the default demo scenario.**
 
 Reason: Ohio HCV waitlists have been closed in most major metro areas (Columbus, Cleveland, Cincinnati) since 2022. The median wait time nationally is 2–4 years where lists are open. A user who currently has a Section 8 voucher would know it — they can toggle it on.
 
@@ -283,10 +283,10 @@ Do NOT model Section 8 as a flowing graduated benefit for the default view. It d
 | Medicaid (adults 19–64) | Hard binary | **$45,540** (138% FPL) | Children eligible to 216% FPL |
 | PFCC Childcare (entry) | Hard entry cliff | **$47,850** (145% FPL) | Continuation to $99K for enrolled families |
 | SNAP | Graduated phase-out | **~$44,671** (net income test) | Net income > 100% FPL eliminates eligibility |
-| ACA PTC (400% cliff) | Hard cliff | **$132,000** (400% FPL) | Outside Keisha's range; relevant for higher earners |
+| ACA PTC (400% cliff) | Hard cliff | **$132,000** (400% FPL) | Outside demo range; relevant for higher earners |
 | Section 8 / HCV | Waitlist/binary | ~$52,500 (50% AMI) | Modeled as inactive by default |
 
-### The Keisha Danger Zone ($44K–$48K)
+### The Danger Zone ($44K–$48K)
 The most dangerous income range for Ohio families of 4 in 2026 — engine-verified:
 - **~$44,671**: SNAP eliminated (net income test at 100% FPL) → lose up to $2,184/year
 - **$45,540**: Lose Medicaid → must buy ACA marketplace coverage (~$1,600/year net cost at that income)
