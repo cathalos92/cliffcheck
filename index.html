@@ -677,12 +677,15 @@
           const currentResult = calcEffectiveTakeHome(Number(currentIncome), Number(familySize), opts);
           const offeredResult = calcEffectiveTakeHome(Number(offeredIncome), Number(familySize), opts);
 
+          // Safe exit = minimum income past ALL cliffs where effective permanently exceeds baseline.
+          // Scan from high to low: find last income below baseline, safe exit = next income up.
           let safeExit = null;
-          for (let i = 0; i < data.length - 2; i++) {
-            if (data[i].totalEffective > currentResult.totalEffective + 2000 &&
-                data[i+1].totalEffective >= data[i].totalEffective - 500 &&
-                data[i+2].totalEffective >= data[i+1].totalEffective - 500) {
-              safeExit = data[i].income;
+          const seBaseline = currentResult.totalEffective;
+          for (let i = data.length - 1; i >= 0; i--) {
+            if (data[i].totalEffective < seBaseline) {
+              if (i + 1 < data.length && data[i + 1].income > Number(currentIncome)) {
+                safeExit = data[i + 1].income;
+              }
               break;
             }
           }
@@ -829,7 +832,7 @@
                   Safe exit: ${safeExit.toLocaleString()}/yr
                 </p>
                 <p className="text-xs text-green-700 mt-1">
-                  First income where your total value clearly exceeds what you have today.
+                  First income past all benefit cliffs where you stay ahead of today.
                 </p>
               </div>
             )}
@@ -857,11 +860,12 @@
           const diff = offered.totalEffective - current.totalEffective;
           const data = getCliffChartData(fs, opts);
           let safeExit = null;
-          for (let i = 0; i < data.length - 2; i++) {
-            if (data[i].totalEffective > current.totalEffective + 2000 &&
-                data[i+1].totalEffective >= data[i].totalEffective - 500 &&
-                data[i+2].totalEffective >= data[i+1].totalEffective - 500) {
-              safeExit = data[i].income;
+          const seBaseline = current.totalEffective;
+          for (let i = data.length - 1; i >= 0; i--) {
+            if (data[i].totalEffective < seBaseline) {
+              if (i + 1 < data.length && data[i + 1].income > Number(currentIncome)) {
+                safeExit = data[i + 1].income;
+              }
               break;
             }
           }
@@ -874,7 +878,7 @@
           ? `The ${fmtDollars(Number(offeredIncome))} offer would give ${fmtDollars(offered.totalEffective)} total effective — that's ${fmtDollars(Math.abs(diff))} less than today`
           : `The ${fmtDollars(Number(offeredIncome))} offer would give ${fmtDollars(offered.totalEffective)} total effective — ${fmtDollars(diff)} more than today`;
         const line3 = safeExit
-          ? `My real break-even target is ~${fmtDollars(safeExit)}/yr — that's where the raise actually helps me`
+          ? `To clear all benefit cliffs, I need ~${fmtDollars(safeExit)}/yr — that's where I permanently stay ahead`
           : `The offered income clears all benefit cliffs — this raise genuinely improves total compensation`;
         const briefText = [line1, line2, line3].join('\n');
 
