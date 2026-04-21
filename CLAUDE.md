@@ -300,6 +300,15 @@ These rules come from 80+ cycles of dogfooding. They prevent the most common sou
 - **Access-widening stages require auth/security phases.** Before declaring a stage complete, check if it widens who can access the product (e.g. Alpha Distribution, Alpha Cohort). If so, auth hardening and security review must be completed first — not discovered after the fact.
 - **Pattern:** Audit access surface → fix vulnerabilities → then widen access. Never ship access-widening without a security phase.
 
+## Design System
+
+`.impeccable.md` at the project root is the design brain for all UI work. Read it before any frontend task. It defines:
+- Colour tokens (warm stone/amber palette, chart zone colours)
+- Typography rules (hierarchy, dollar formatting, number display)
+- Component patterns (input fields, cliff alert card, manager brief card, CTA buttons)
+- Anti-patterns checklist (non-negotiable before marking any UI task done)
+- The "Oh Shit" test — the quality bar for the cliff chart output
+
 ## Code Style Conventions
 
 - All app code lives inline in `index.html`. No separate `.js`, `.ts`, `.jsx`, or `.tsx` files. CDN URLs only — no local imports.
