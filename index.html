@@ -28,6 +28,227 @@
   </head>
   <body>
     <div id="root"></div>
+
+    <!-- ── Ohio Benefit Calculation Engine ────────────────────────────────────
+         Sources: docs/ohio-benefit-rules.md (FY2026 rules, retrieved 2026-04-21)
+         All income values in annual dollars. Phase-outs as continuous functions. -->
+    <script>
+      // Federal Poverty Guidelines FY2026 — 48 contiguous states + D.C.
+      // Source: HHS/ASPE, Federal Register 2026-01-15
+      // https://aspe.hhs.gov/topics/poverty-economic-mobility/poverty-guidelines
+      const FPL_BASE_2026 = 15960;
+      const FPL_INCREMENT_2026 = 5680;
+
+      function getFPL(familySize) {
+        return FPL_BASE_2026 + (Math.max(1, familySize) - 1) * FPL_INCREMENT_2026;
+      }
+
+      function getFPLPercent(annualIncome, familySize) {
+        return annualIncome / getFPL(familySize);
+      }
+
+      // Ohio rule tables
+      const OH = {
+        // SNAP: USDA FNS FY2026; Ohio JFS (Ohio BBCE)
+        // https://www.fns.usda.gov/snap/recipient/eligibility
+        // https://www.snapscreener.com/guides/ohio
+        snap: {
+          grossLimitFPL: 2.00,          // Ohio BBCE: 200% FPL (federal default is 130%)
+          netLimitFPL: 1.00,            // 100% FPL net income limit
+          // Standard deduction $/month indexed by household size 1–6
+          stdDeduction:        [0, 209, 209, 209, 228, 247, 266],
+          eidRate: 0.20,                // 20% earned income deduction
+          benefitReductionRate: 0.30,   // benefit reduces $0.30 per $1 net income
+          // Maximum monthly benefit (Oct 2025 – Sep 2026) by household size
+          maxMonthlyBenefit:   [0, 298, 549, 785, 994, 1183, 1419],
+        },
+
+        // Medicaid: Ohio Dept. of Medicaid; Ohio expanded 2014
+        // https://www.medicaid.gov/state-overviews/stateprofile.html?state=Ohio
+        medicaid: {
+          expansionFPL: 1.38,  // Adults 19–64: 138% FPL (133% + 5% income disregard)
+          childrenFPL: 2.16,   // Children: 216% FPL
+          // Dollar proxy for the value of free Medicaid coverage (per adult per year).
+          // Represents the marketplace premium cost a family avoids by having Medicaid.
+          // Conservative estimate; actual actuarial value for low-income adults is higher.
+          adultAnnualValueProxy: 2250, // $/adult/year (2 adults in family of 4 = $4,500)
+        },
+
+        // ACA Marketplace: Congress.gov CRS R48290; thefinancebuff.com
+        // https://thefinancebuff.com/aca-premium-tax-credit-percentages.html
+        // NOTE: ARP/IRA enhanced PTCs expired end of 2025 — standard table applies for 2026.
+        //       The 400% FPL subsidy cliff RETURNED in 2026.
+        aca: {
+          eligibleFPLMin: 1.00,  // Below this → Medicaid eligible; no PTC
+          cliffFPL: 4.00,        // Above this → no PTC; hard cliff
+          // SLCSP (Second Lowest Cost Silver Plan) benchmark — Ohio estimate 2026
+          // Varies by county; central/northeast OH representative values
+          slcspMonthly: { 1: 700, 2: 1400, 3: 1750, 4: 2100, 5: 2625, 6: 3150 },
+          // Applicable percentage table: [fplFraction, maxContributionPct]
+          // PTC = SLCSP_premium - (income × applicablePct). Interpolate linearly.
+          pctTable: [
+            [1.00, 0.0210],
+            [1.33, 0.0314],
+            [1.50, 0.0419],
+            [2.00, 0.0660],
+            [2.50, 0.0844],
+            [3.00, 0.0996],
+            [4.00, 0.0996],
+          ],
+        },
+
+        // Ohio PFCC Childcare Subsidy: Ohio DCY; childcarecostfinder.com
+        // https://childrenandyouth.ohio.gov/for-providers/resources/pfcc
+        pfcc: {
+          entryFPL: 1.45,    // New enrollment: ≤145% FPL
+          exitFPL: 3.00,     // Continuation exit: ≤300% FPL (enrolled families only)
+          coPayRate: 0.07,   // 7% of annual income cap (effective July 2026)
+          coPayFreeFPL: 1.00, // Below 100% FPL: $0 co-pay
+          // Annual gross childcare value — Ohio 75th percentile market rate
+          // Indexed by number of children (0–3)
+          childcareValuePerChild: [0, 11000, 23000, 33000],
+        },
+
+        // Section 8 / HCV: HUD; Columbus MHA (CMHA)
+        // https://www.hud.gov/helping-americans/housing-choice-vouchers-tenants
+        // Modeled as inactive by default — Ohio PHAs have closed waitlists.
+        section8: {
+          incomeLimitAnnual: 52500,     // 50% AMI for Columbus family of 4 (2026 est.)
+          paymentStandardMonthly: 1750, // 3BR Columbus 2026 estimate
+          tenantShareRate: 0.30,
+        },
+      };
+
+      // ── SNAP ───────────────────────────────────────────────────────────────
+      // Graduated phase-out — not a binary cliff. $0.30 reduction per $1 net income.
+      function calcSnap(annualIncome, familySize) {
+        const fpl = getFPL(familySize);
+        const size = Math.min(Math.max(1, familySize), 6);
+        const grossMonthly = annualIncome / 12;
+
+        // Gross income test (Ohio BBCE: 200% FPL)
+        if (annualIncome > fpl * OH.snap.grossLimitFPL) return 0;
+
+        const stdDed = OH.snap.stdDeduction[size];
+        const eid = grossMonthly * OH.snap.eidRate;
+        const netMonthly = Math.max(0, grossMonthly - stdDed - eid);
+
+        // Net income test (100% FPL)
+        if (netMonthly > fpl / 12) return 0;
+
+        const maxBenefit = OH.snap.maxMonthlyBenefit[size];
+        const monthly = Math.max(0, maxBenefit - Math.round(netMonthly * OH.snap.benefitReductionRate));
+        return monthly * 12;
+      }
+
+      // ── ACA applicable percentage (piecewise linear interpolation) ─────────
+      function _acaApplicablePct(fplFraction) {
+        const t = OH.aca.pctTable;
+        if (fplFraction <= t[0][0]) return t[0][1];
+        if (fplFraction >= t[t.length - 1][0]) return t[t.length - 1][1];
+        for (let i = 1; i < t.length; i++) {
+          if (fplFraction <= t[i][0]) {
+            const [x0, y0] = t[i - 1], [x1, y1] = t[i];
+            return y0 + (y1 - y0) * (fplFraction - x0) / (x1 - x0);
+          }
+        }
+        return t[t.length - 1][1];
+      }
+
+      // ── ACA Premium Cost (annual expense, positive value) ──────────────────
+      // Hard cliff at 400% FPL: below = subsidised; above = full premium.
+      function calcACAPremium(annualIncome, familySize) {
+        const fpl = getFPL(familySize);
+        const fplFraction = annualIncome / fpl;
+        const size = Math.min(Math.max(1, familySize), 6);
+        const slcspAnnual = (OH.aca.slcspMonthly[size] || OH.aca.slcspMonthly[6]) * 12;
+
+        // Below 100% FPL → Medicaid; no ACA cost
+        if (fplFraction < OH.aca.eligibleFPLMin) return 0;
+        // Above 400% FPL → no PTC; pay full premium (hard cliff). At exactly 400% PTC still applies.
+        if (fplFraction > OH.aca.cliffFPL) return slcspAnnual;
+
+        const contribution = Math.round(annualIncome * _acaApplicablePct(fplFraction));
+        return Math.min(contribution, slcspAnnual);
+      }
+
+      // ── Medicaid Value (annual dollar proxy for free coverage) ─────────────
+      // Binary cliff at 138% FPL for adults. Children eligible to 216% FPL.
+      // Value proxy = avoided insurance cost (2 adults × adultAnnualValueProxy).
+      function calcMedicaidValue(annualIncome, familySize) {
+        const fpl = getFPL(familySize);
+        if (annualIncome / fpl <= OH.medicaid.expansionFPL) {
+          const adults = Math.max(1, Math.min(2, familySize - Math.max(0, familySize - 2)));
+          return adults * OH.medicaid.adultAnnualValueProxy;
+        }
+        return 0;
+      }
+
+      // ── PFCC Childcare Subsidy ─────────────────────────────────────────────
+      // Entry cliff at 145% FPL. Enrolled families exit at 300% FPL.
+      // numChildren inferred from familySize (assumes 2 adults).
+      function calcChildcareSubsidy(annualIncome, familySize, pfccEnrolled) {
+        const fpl = getFPL(familySize);
+        const fplFraction = annualIncome / fpl;
+        const numChildren = Math.max(0, familySize - 2);
+        const idx = Math.min(numChildren, OH.pfcc.childcareValuePerChild.length - 1);
+        const grossValue = OH.pfcc.childcareValuePerChild[idx];
+
+        if (grossValue === 0) return 0;
+
+        // Entry: ≤145% FPL. Continuation for enrolled: ≤300% FPL.
+        const eligible = fplFraction <= OH.pfcc.entryFPL ||
+                         (pfccEnrolled && fplFraction <= OH.pfcc.exitFPL);
+        if (!eligible) return 0;
+
+        const coPay = fplFraction <= OH.pfcc.coPayFreeFPL
+          ? 0
+          : Math.round(annualIncome * OH.pfcc.coPayRate);
+        return Math.max(0, grossValue - coPay);
+      }
+
+      // ── Section 8 / HCV Value ──────────────────────────────────────────────
+      // Returns $0 by default (waitlist-based; most Ohio families don't have a voucher).
+      function calcSection8Value(annualIncome, familySize, hasVoucher) {
+        if (!hasVoucher) return 0;
+        if (annualIncome > OH.section8.incomeLimitAnnual) return 0;
+        const tenantShare = (annualIncome / 12) * OH.section8.tenantShareRate;
+        return Math.max(0, Math.round((OH.section8.paymentStandardMonthly - tenantShare) * 12));
+      }
+
+      // ── Effective Take-Home ────────────────────────────────────────────────
+      // Returns breakdown + totalEffective for any income across all programs.
+      // opts: { pfccEnrolled: bool, hasVoucher: bool }
+      function calcEffectiveTakeHome(annualIncome, familySize, opts) {
+        const { pfccEnrolled = false, hasVoucher = false } = opts || {};
+        const onMedicaid = annualIncome / getFPL(familySize) <= OH.medicaid.expansionFPL;
+
+        const snapValue      = calcSnap(annualIncome, familySize);
+        const medicaidValue  = onMedicaid ? calcMedicaidValue(annualIncome, familySize) : 0;
+        const acaCost        = onMedicaid ? 0 : calcACAPremium(annualIncome, familySize);
+        const section8Value  = calcSection8Value(annualIncome, familySize, hasVoucher);
+        const childcareValue = calcChildcareSubsidy(annualIncome, familySize, pfccEnrolled);
+
+        const totalEffective = Math.round(
+          annualIncome + snapValue + medicaidValue + section8Value + childcareValue - acaCost
+        );
+
+        return { grossWages: annualIncome, snapValue, medicaidValue, acaCost,
+                 section8Value, childcareValue, totalEffective };
+      }
+
+      // ── Cliff Chart Data ───────────────────────────────────────────────────
+      // 121 points: $0 to $120,000 in $1,000 increments.
+      // opts: same as calcEffectiveTakeHome
+      function getCliffChartData(familySize, opts) {
+        const points = [];
+        for (let income = 0; income <= 120000; income += 1000) {
+          points.push({ income, ...calcEffectiveTakeHome(income, familySize, opts) });
+        }
+        return points;
+      }
+    </script>
+
     <!-- React global for Babel JSX -->
     <script type="module">
       import * as React from "react";
