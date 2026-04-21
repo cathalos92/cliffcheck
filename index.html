@@ -739,6 +739,77 @@
         );
       }
 
+      // ── ManagerBrief ──
+      function ManagerBrief() {
+        const familySize    = useCell('profile', 'current', 'familySize')    ?? DEFAULTS.familySize;
+        const currentIncome = useCell('profile', 'current', 'currentIncome') ?? DEFAULTS.currentIncome;
+        const offeredIncome = useCell('profile', 'current', 'offeredIncome') ?? DEFAULTS.offeredIncome;
+        const [copied, setCopied] = useState(false);
+
+        const { current, offered, safeExit, benefitValue, diff } = useMemo(() => {
+          const fs  = Number(familySize);
+          const current = calcEffectiveTakeHome(Number(currentIncome), fs);
+          const offered = calcEffectiveTakeHome(Number(offeredIncome), fs);
+          const benefitValue = current.snapValue + current.medicaidValue
+            + current.section8Value + current.childcareValue - current.acaCost;
+          const diff = offered.totalEffective - current.totalEffective;
+          const data = getCliffChartData(fs);
+          let safeExit = null;
+          for (let i = 0; i < data.length - 2; i++) {
+            if (data[i].totalEffective > current.totalEffective + 2000 &&
+                data[i+1].totalEffective >= data[i].totalEffective - 500 &&
+                data[i+2].totalEffective >= data[i+1].totalEffective - 500) {
+              safeExit = data[i].income;
+              break;
+            }
+          }
+          return { current, offered, safeExit, benefitValue, diff };
+        }, [familySize, currentIncome, offeredIncome]);
+
+        const isWorse = diff < -500;
+        const line1 = `Currently earning ${fmtDollars(Number(currentIncome))}/yr with ${fmtDollars(Math.abs(benefitValue))} in annual benefit value — ${fmtDollars(current.totalEffective)} total effective`;
+        const line2 = isWorse
+          ? `The ${fmtDollars(Number(offeredIncome))} offer would give ${fmtDollars(offered.totalEffective)} total effective — that's ${fmtDollars(Math.abs(diff))} less than today`
+          : `The ${fmtDollars(Number(offeredIncome))} offer would give ${fmtDollars(offered.totalEffective)} total effective — ${fmtDollars(diff)} more than today`;
+        const line3 = safeExit
+          ? `My real break-even target is ~${fmtDollars(safeExit)}/yr — that's where the raise actually helps me`
+          : `The offered income clears all benefit cliffs — this raise genuinely improves total compensation`;
+        const briefText = [line1, line2, line3].join('\n');
+
+        async function handleCopy() {
+          try {
+            await navigator.clipboard.writeText(briefText);
+            setCopied(true);
+            setTimeout(() => setCopied(false), 2000);
+          } catch (_) {}
+        }
+
+        return (
+          <div className="mt-4 bg-amber-50 border border-amber-200 rounded-2xl p-5">
+            <div className="flex items-start justify-between gap-3 mb-4">
+              <div>
+                <h2 className="text-base font-semibold text-stone-800">Manager brief</h2>
+                <p className="text-xs text-stone-500 mt-0.5">Copy and paste into a message to your manager or HR</p>
+              </div>
+              <button
+                onClick={handleCopy}
+                className="shrink-0 text-xs font-semibold px-3 py-2 rounded-lg bg-amber-400 text-stone-900 hover:bg-amber-500 active:bg-amber-600 transition-colors"
+              >
+                {copied ? '✓ Copied' : 'Copy text'}
+              </button>
+            </div>
+            <ol className="space-y-3">
+              {[line1, line2, line3].map((line, i) => (
+                <li key={i} className="flex gap-3">
+                  <span className="shrink-0 w-5 h-5 rounded-full bg-amber-200 text-amber-900 text-xs font-bold flex items-center justify-center mt-0.5">{i + 1}</span>
+                  <p className="text-sm text-stone-700 leading-relaxed">{line}</p>
+                </li>
+              ))}
+            </ol>
+          </div>
+        );
+      }
+
       // ── App ──
       function App() {
         useEffect(() => {
@@ -768,6 +839,7 @@
                     <CliffChart />
                   </div>
                 </div>
+                <ManagerBrief />
               </div>
             </div>
           </Provider>
