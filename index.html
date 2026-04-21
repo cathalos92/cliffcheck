@@ -871,6 +871,14 @@
         const diff    = offeredResult.totalEffective - currentResult.totalEffective;
         const isWorse = diff < -500;
 
+        const chartBreakdown = isWorse ? [
+          { label: 'SNAP',      delta: Math.round((offeredResult.snapValue      - currentResult.snapValue)      / 12) },
+          { label: 'Medicaid',  delta: Math.round((offeredResult.medicaidValue  - currentResult.medicaidValue)  / 12) },
+          { label: 'ACA cost',  delta: Math.round((offeredResult.acaCost        - currentResult.acaCost)        / 12) },
+          { label: 'Childcare', delta: Math.round((offeredResult.childcareValue - currentResult.childcareValue) / 12) },
+          ...(opts.hasVoucher ? [{ label: 'Section 8', delta: Math.round((offeredResult.section8Value - currentResult.section8Value) / 12) }] : []),
+        ].filter(b => b.delta !== 0) : [];
+
         return (
           <div className="mt-4 bg-white rounded-2xl border border-stone-200 p-5">
             <h2 className="text-base font-semibold text-stone-800 mb-3">
@@ -899,6 +907,20 @@
                   ⚠ Taking this offer costs you {fmtDollars(Math.abs(diff))}/yr
                 </p>
                 <p className="text-xs text-red-600 mt-1">Benefits phase out faster than your wages grow.</p>
+                {chartBreakdown.length > 0 && (
+                  <div className="mt-2.5 pt-2.5 border-t border-red-200 space-y-1">
+                    {chartBreakdown.map(({ label, delta }) => {
+                      const isLoss = label === 'ACA cost' ? delta > 0 : delta < 0;
+                      const sign   = label === 'ACA cost' ? (delta > 0 ? '+' : '−') : (delta < 0 ? '−' : '+');
+                      return (
+                        <p key={label} className={`text-xs font-medium ${isLoss ? 'text-red-600' : 'text-stone-500'}`}
+                           style={{fontVariantNumeric:'tabular-nums'}}>
+                          {label} {sign}${Math.abs(delta).toLocaleString()}/mo
+                        </p>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
             )}
 
