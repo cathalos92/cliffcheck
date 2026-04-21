@@ -1020,6 +1020,35 @@
         );
       }
 
+      // ── SourcesFooter ──
+      function SourcesFooter() {
+        const sources = [
+          { label: 'Federal Poverty Level (HHS/ASPE 2026)', url: 'https://aspe.hhs.gov/topics/poverty-economic-mobility/poverty-guidelines' },
+          { label: 'SNAP eligibility & allotments (USDA FNS)', url: 'https://www.fns.usda.gov/snap/recipient/eligibility' },
+          { label: 'Ohio Medicaid expansion (medicaid.gov)', url: 'https://www.medicaid.gov/state-overviews/stateprofile.html?state=Ohio' },
+          { label: 'ACA premium tax credits 2026 (thefinancebuff.com)', url: 'https://thefinancebuff.com/aca-premium-tax-credit-percentages.html' },
+          { label: 'Ohio PFCC childcare subsidy (Ohio DCY)', url: 'https://childrenandyouth.ohio.gov/for-providers/resources/pfcc' },
+          { label: 'Section 8 / Housing Choice Vouchers (HUD)', url: 'https://www.hud.gov/helping-americans/housing-choice-vouchers-tenants' },
+        ];
+        return (
+          <details className="mt-6 border-t border-stone-200 pt-4">
+            <summary className="text-xs text-stone-400 cursor-pointer select-none hover:text-stone-600 list-none flex items-center gap-1.5">
+              <span>▸</span> Sources &amp; data references
+            </summary>
+            <ul className="mt-3 space-y-2">
+              {sources.map(({ label, url }) => (
+                <li key={url}>
+                  <a href={url} target="_blank" rel="noopener noreferrer"
+                     className="text-xs text-stone-500 hover:text-amber-600 underline underline-offset-2">
+                    {label}
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </details>
+        );
+      }
+
       // ── App ──
       function App() {
         useEffect(() => {
@@ -1050,6 +1079,7 @@
                   </div>
                 </div>
                 <ManagerBrief />
+                <SourcesFooter />
               </div>
             </div>
           </Provider>
