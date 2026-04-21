@@ -807,9 +807,29 @@
               plugins: {
                 legend: { display: false },
                 tooltip: {
+                  backgroundColor: '#FAFAF9',
+                  titleColor: '#1C1917',
+                  bodyColor: '#57534E',
+                  borderColor: '#E7E5E4',
+                  borderWidth: 1,
+                  padding: 10,
                   callbacks: {
                     title: ctx => '$' + Number(ctx[0].parsed.x).toLocaleString() + '/yr wages',
-                    label: ctx => 'Effective take-home: $' + Math.round(ctx.parsed.y).toLocaleString(),
+                    label: ctx => {
+                      const income = Number(ctx.parsed.x);
+                      const r = calcEffectiveTakeHome(income, Number(familySize), { adultCount: Number(adultCount), hasVoucher: !!hasSection8Voucher });
+                      const lines = [
+                        `Wages:      $${Math.round(r.grossWages).toLocaleString()}`,
+                        `SNAP:      +$${Math.round(r.snapValue).toLocaleString()}`,
+                        `Medicaid:  +$${Math.round(r.medicaidValue).toLocaleString()}`,
+                        `Childcare: +$${Math.round(r.childcareValue).toLocaleString()}`,
+                        `ACA cost:  −$${Math.round(r.acaCost).toLocaleString()}`,
+                        ...(r.section8Value > 0 ? [`Section 8: +$${Math.round(r.section8Value).toLocaleString()}`] : []),
+                        `─────────────────────`,
+                        `Total: $${Math.round(r.totalEffective).toLocaleString()}/yr`,
+                      ];
+                      return lines;
+                    },
                   },
                 },
                 cliffChartPlugin: { lines, cliffAnnotation },
