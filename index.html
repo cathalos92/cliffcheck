@@ -948,7 +948,7 @@
             )}
 
             {/* Safe exit callout */}
-            {safeExit && (
+            {isWorse && safeExit && (
               <div className="mt-3 p-3.5 bg-green-50 rounded-xl border border-green-200">
                 <p className="text-sm font-semibold text-green-700">
                   Safe exit: ${safeExit.toLocaleString()}/yr
@@ -1091,12 +1091,12 @@
                 <div className="md:grid md:grid-cols-[2fr_3fr] md:gap-6 md:items-start mt-2">
                   <div>
                     <ProfileForm />
-                    <LiveSummary />
                   </div>
                   <div>
                     <CliffChart />
                   </div>
                 </div>
+                <LiveSummary />
                 <ManagerBrief />
                 <SourcesFooter />
               </div>
