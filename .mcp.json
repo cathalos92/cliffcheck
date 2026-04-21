@@ -7,7 +7,8 @@
         "PAPI_PROJECT_DIR": "/Users/cathaloullivan/Ai-App-Projects/VibeJam",
         "PAPI_ADAPTER": "pg",
         "DATABASE_URL": "postgresql://postgres.guewgygcpcmrcoppihzx:ltYgrKtrhBkKCKb9@aws-1-eu-west-1.pooler.supabase.com:6543/postgres",
-        "PAPI_PROJECT_ID": "b3bb8de2-60d5-42c8-a1d6-dc8770da4b7e"
+        "PAPI_PROJECT_ID": "b3bb8de2-60d5-42c8-a1d6-dc8770da4b7e",
+        "PAPI_USER_ID": "00000000-0000-0000-0000-000000000000"
       }
     }
   }
