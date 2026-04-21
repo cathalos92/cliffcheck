@@ -172,11 +172,11 @@ Ohio-specific SLCSP varies by county. Representative estimate for Ohio (central/
 - At income $1 above $132,000: family must pay full ~$25,200/year premium
 - This is a genuine **hard cliff** — a small income increase eliminates thousands in subsidy
 
-### Modeling Note for Keisha ($54K → $82K range)
+### Modeling Note for Keisha ($44K → $82K range)
 The 400% FPL cliff ($132K) is above Keisha's relevant income range. The relevant ACA event for Keisha is the **Medicaid exit at 138% FPL ($45,540)**:
-- Below $45,540: Medicaid (effectively free)
+- Below $45,540: Medicaid (effectively free) — Keisha's base wage of $44K puts her here
 - Above $45,540: must buy ACA marketplace coverage
-- At $54,000 income: family of 4 is at 163% FPL → expected contribution ≈ 5.6% of income ≈ $3,024/year for benchmark premium; PTC = $25,200 - $3,024 = $22,176 → net cost ~$3,024/year
+- At $46,000 income (just above Medicaid exit): 143% FPL → expected contribution ≈ 4.8% ≈ $2,208/year; PTC = $25,200 − $2,208 = $22,992 → net cost ~$2,208/year
 - At $70,000: 212% FPL → expected contribution ≈ 7.0% = $4,900/year; PTC = $25,200 - $4,900 = $20,300 → net cost ~$4,900/year
 
 ### Ohio-Specific Notes
@@ -260,10 +260,10 @@ tenant_share = 0.30 × adjusted_monthly_income
 voucher_value = payment_standard - tenant_share
 ```
 
-At income $54,000/year (Keisha baseline without voucher):
-- Monthly: $4,500
-- Tenant share: $4,500 × 0.30 = $1,350
-- Voucher value (3BR): $1,750 − $1,350 = **$400/month = $4,800/year**
+At income $44,000/year (Keisha baseline without voucher):
+- Monthly: $3,667
+- Tenant share: $3,667 × 0.30 = $1,100
+- Voucher value (3BR): $1,750 − $1,100 = **$650/month = $7,800/year**
 
 ### CliffCheck Modeling Assumption
 **Section 8 is modeled as NOT ACTIVE for the default Keisha persona.**

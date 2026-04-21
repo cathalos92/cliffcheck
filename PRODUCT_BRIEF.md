@@ -14,11 +14,11 @@ A phone-first web app that lets users input their family situation and current b
 5. Shareable one-page brief for manager conversations
 
 ## Demo Persona
-**Keisha** — Warehouse worker in Ohio, two kids, makes $54k all-in after benefits. Offered promotion to $70k.
-- Current effective take-home: $58k (wages + SNAP + childcare subsidy + Medicaid)
-- After promotion: $64k wages but -$10k in lost benefits and new ACA premiums
-- Net: she's worse off by $4k taking the raise
-- Recommendation: negotiate to $82k+ (clears every cliff in OH), or use free state workforce program to upskill to $85k in 14 months
+**Keisha** — Warehouse worker in Ohio, family of four (two kids). Earns $44k in wages. Offered promotion to $70k.
+- Current effective take-home: $70,604 (wages + SNAP + Medicaid + childcare subsidy — engine-verified)
+- After promotion: $65,068 effective — loses benefits faster than wages grow
+- Net: she's worse off by ~$5,500 taking the raise
+- Recommendation: negotiate to $79k+ (first safe exit above all Ohio cliffs) or $82k+ to clear comfortably
 
 ## Target Users
 **Primary:** Working-class Americans navigating benefits cliffs — warehouse workers, retail staff, gig workers, single parents
