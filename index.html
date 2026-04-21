@@ -569,14 +569,6 @@
           return null;
         }, [familySize, currentIncome, adultCount, hasSection8Voucher, pfccEnrolled]);
 
-        // Per-benefit deltas (monthly, for breakdown display)
-        const breakdown = isWorse ? [
-          { label: 'SNAP',      delta: Math.round((offered.snapValue      - current.snapValue)      / 12) },
-          { label: 'Medicaid',  delta: Math.round((offered.medicaidValue  - current.medicaidValue)  / 12) },
-          { label: 'ACA cost',  delta: Math.round((offered.acaCost        - current.acaCost)        / 12) },
-          { label: 'Childcare', delta: Math.round((offered.childcareValue - current.childcareValue) / 12) },
-          ...(opts.hasVoucher ? [{ label: 'Section 8', delta: Math.round((offered.section8Value - current.section8Value) / 12) }] : []),
-        ].filter(b => b.delta !== 0) : [];
 
         return (
           <div className="mt-4 bg-white rounded-2xl border border-stone-200 p-5">
@@ -621,22 +613,6 @@
                 <p className="text-xs text-red-600 mt-1.5">
                   Benefits phase out faster than your wages grow.
                 </p>
-                {breakdown.length > 0 && (
-                  <div className="mt-2.5 pt-2.5 border-t border-red-200 space-y-1">
-                    {breakdown.map(({ label, delta }) => {
-                      // For ACA cost: positive delta = new/higher cost = bad
-                      // For others: negative delta = loss = bad
-                      const isLoss = label === 'ACA cost' ? delta > 0 : delta < 0;
-                      const sign   = label === 'ACA cost' ? (delta > 0 ? '+' : '−') : (delta < 0 ? '−' : '+');
-                      return (
-                        <p key={label} className={`text-xs font-medium ${isLoss ? 'text-red-600' : 'text-stone-500'}`}
-                           style={{fontVariantNumeric: 'tabular-nums'}}>
-                          {label} {sign}${Math.abs(delta).toLocaleString()}/mo
-                        </p>
-                      );
-                    })}
-                  </div>
-                )}
               </div>
             )}
             {isWorse && safeExit && (
