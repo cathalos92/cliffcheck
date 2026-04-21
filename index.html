@@ -333,7 +333,7 @@
 
       // ── Store (module-level singleton) ──
       const store = createStore();
-      const DEFAULTS = { state: 'OH', familySize: 4, currentIncome: 44000, offeredIncome: 70000, adultCount: 2, hasSection8Voucher: false };
+      const DEFAULTS = { state: 'OH', familySize: 4, currentIncome: 44000, offeredIncome: 70000, adultCount: 2, hasSection8Voucher: false, pfccEnrolled: false };
 
       // ── Helpers ──
       function fmtDollars(n) {
@@ -387,6 +387,34 @@
         );
       }
 
+      // ── IncomeSlider ──
+      function IncomeSlider({ id, value, onChange }) {
+        return (
+          <div>
+            <p className="text-2xl font-extrabold text-stone-900 leading-none mb-2"
+               style={{fontVariantNumeric:'tabular-nums'}}>
+              {fmtDollars(value)}/yr
+            </p>
+            <div className="py-2.5">
+              <input
+                id={id}
+                type="range"
+                min="0"
+                max="120000"
+                step="1000"
+                value={value}
+                onChange={e => onChange(Number(e.target.value))}
+                className="w-full accent-amber-500 cursor-pointer"
+                style={{height:'6px'}}
+              />
+            </div>
+            <div className="flex justify-between text-xs text-stone-400 -mt-1">
+              <span>$0</span><span>$60k</span><span>$120k</span>
+            </div>
+          </div>
+        );
+      }
+
       // ── ProfileForm ──
       function ProfileForm() {
         const familySize       = useCell('profile', 'current', 'familySize')       ?? DEFAULTS.familySize;
@@ -394,6 +422,7 @@
         const offeredIncome    = useCell('profile', 'current', 'offeredIncome')    ?? DEFAULTS.offeredIncome;
         const adultCount       = useCell('profile', 'current', 'adultCount')       ?? DEFAULTS.adultCount;
         const hasSection8Voucher = useCell('profile', 'current', 'hasSection8Voucher') ?? DEFAULTS.hasSection8Voucher;
+        const pfccEnrolled     = useCell('profile', 'current', 'pfccEnrolled')     ?? DEFAULTS.pfccEnrolled;
 
         return (
           <div className="bg-white rounded-2xl border border-stone-200 p-5 mt-6">
@@ -446,15 +475,14 @@
             </div>
 
             {/* Current wages */}
-            <div className="mb-4">
+            <div className="mb-5">
               <label htmlFor="currentIncome" className="block text-sm font-medium text-stone-700 mb-1.5">
                 Current annual wages
               </label>
-              <CurrencyInput
+              <IncomeSlider
                 id="currentIncome"
-                value={currentIncome}
+                value={Number(currentIncome)}
                 onChange={v => store.setCell('profile', 'current', 'currentIncome', v)}
-                placeholder="e.g. $44,000"
               />
             </div>
 
@@ -463,16 +491,15 @@
               <label htmlFor="offeredIncome" className="block text-sm font-medium text-stone-700 mb-1.5">
                 Offered or target annual wages
               </label>
-              <CurrencyInput
+              <IncomeSlider
                 id="offeredIncome"
-                value={offeredIncome}
+                value={Number(offeredIncome)}
                 onChange={v => store.setCell('profile', 'current', 'offeredIncome', v)}
-                placeholder="e.g. $70,000"
               />
             </div>
 
             {/* Section 8 voucher */}
-            <div>
+            <div className="mb-3">
               <label className="flex items-center gap-3 cursor-pointer">
                 <input
                   type="checkbox"
@@ -483,6 +510,21 @@
                 <span className="text-sm text-stone-700">I have a Section 8 / Housing Choice Voucher</span>
               </label>
             </div>
+
+            {/* PFCC enrolled — Ohio only, families with children */}
+            {Number(familySize) > 1 && (
+              <div>
+                <label className="flex items-center gap-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={!!pfccEnrolled}
+                    onChange={e => store.setCell('profile', 'current', 'pfccEnrolled', e.target.checked)}
+                    className="w-5 h-5 rounded border-stone-300 accent-amber-500"
+                  />
+                  <span className="text-sm text-stone-700">Already enrolled in subsidised childcare (PFCC)</span>
+                </label>
+              </div>
+            )}
           </div>
         );
       }
@@ -494,12 +536,13 @@
         const offeredIncome    = useCell('profile', 'current', 'offeredIncome')    ?? DEFAULTS.offeredIncome;
         const adultCount       = useCell('profile', 'current', 'adultCount')       ?? DEFAULTS.adultCount;
         const hasSection8Voucher = useCell('profile', 'current', 'hasSection8Voucher') ?? DEFAULTS.hasSection8Voucher;
+        const pfccEnrolled     = useCell('profile', 'current', 'pfccEnrolled')     ?? DEFAULTS.pfccEnrolled;
 
-        const opts = { adultCount: Number(adultCount), hasVoucher: !!hasSection8Voucher };
+        const opts = { adultCount: Number(adultCount), hasVoucher: !!hasSection8Voucher, pfccEnrolled: !!pfccEnrolled };
 
         const current = useMemo(
           () => calcEffectiveTakeHome(Number(currentIncome), Number(familySize), opts),
-          [currentIncome, familySize, adultCount, hasSection8Voucher]
+          [currentIncome, familySize, adultCount, hasSection8Voucher, pfccEnrolled]
         );
         const offered = useMemo(
           () => calcEffectiveTakeHome(Number(offeredIncome), Number(familySize), opts),
@@ -509,6 +552,22 @@
         const diff = offered.totalEffective - current.totalEffective;
         const isWorse  = diff < -500;
         const isBetter = diff > 500;
+
+        const raiseAmount = Number(offeredIncome) - Number(currentIncome);
+
+        const safeExit = useMemo(() => {
+          const data = getCliffChartData(Number(familySize), opts);
+          const baseline = current.totalEffective;
+          for (let i = data.length - 1; i >= 0; i--) {
+            if (data[i].totalEffective < baseline) {
+              if (i + 1 < data.length && data[i + 1].income > Number(currentIncome)) {
+                return data[i + 1].income;
+              }
+              break;
+            }
+          }
+          return null;
+        }, [familySize, currentIncome, adultCount, hasSection8Voucher, pfccEnrolled]);
 
         // Per-benefit deltas (monthly, for breakdown display)
         const breakdown = isWorse ? [
@@ -553,10 +612,13 @@
 
             {isWorse && (
               <div className="mt-4 p-3.5 bg-red-50 rounded-xl border border-red-200">
-                <p className="text-sm font-semibold text-red-700">
-                  ⚠ This raise makes you {fmtDollars(Math.abs(diff))} worse off per year
+                <p className="text-base font-bold text-stone-900 leading-snug" style={{fontVariantNumeric:'tabular-nums'}}>
+                  {raiseAmount > 0
+                    ? <>Your {fmtDollars(raiseAmount)} raise makes you {fmtDollars(Math.abs(diff))} poorer.</>
+                    : <>This offer makes you {fmtDollars(Math.abs(diff))} worse off than today.</>}
+                  {safeExit ? <> You'd need at least {fmtDollars(safeExit)}/yr to break even.</> : null}
                 </p>
-                <p className="text-xs text-red-600 mt-1">
+                <p className="text-xs text-red-600 mt-1.5">
                   Benefits phase out faster than your wages grow.
                 </p>
                 {breakdown.length > 0 && (
@@ -577,12 +639,29 @@
                 )}
               </div>
             )}
+            {isWorse && safeExit && (
+              <div className="mt-3 p-4 bg-green-50 rounded-xl border border-green-200">
+                <p className="text-xs font-semibold text-green-600 uppercase tracking-wide">Your negotiation target</p>
+                <p className="text-3xl font-extrabold text-green-700 mt-1 leading-none"
+                   style={{fontVariantNumeric:'tabular-nums'}}>
+                  {fmtDollars(safeExit)}/yr
+                </p>
+                <p className="text-sm text-green-700 mt-1.5">
+                  To come out ahead, ask for at least this.
+                </p>
+              </div>
+            )}
             {isBetter && (
               <div className="mt-4 p-3.5 bg-green-50 rounded-xl border border-green-200">
                 <p className="text-sm font-semibold text-green-700">
                   ✓ This raise improves your total value by {fmtDollars(diff)}/yr
                 </p>
               </div>
+            )}
+            {current.childcareValue > 0 && (
+              <p className="text-xs text-stone-400 mt-3 leading-relaxed">
+                Note: PFCC has waitlists in some Ohio counties — availability varies. Contact your county JFS office to confirm.
+              </p>
             )}
           </div>
         );
@@ -668,8 +747,9 @@
         const offeredIncome    = useCell('profile', 'current', 'offeredIncome')    ?? DEFAULTS.offeredIncome;
         const adultCount       = useCell('profile', 'current', 'adultCount')       ?? DEFAULTS.adultCount;
         const hasSection8Voucher = useCell('profile', 'current', 'hasSection8Voucher') ?? DEFAULTS.hasSection8Voucher;
+        const pfccEnrolled     = useCell('profile', 'current', 'pfccEnrolled')     ?? DEFAULTS.pfccEnrolled;
 
-        const opts = { adultCount: Number(adultCount), hasVoucher: !!hasSection8Voucher };
+        const opts = { adultCount: Number(adultCount), hasVoucher: !!hasSection8Voucher, pfccEnrolled: !!pfccEnrolled };
 
         const { pts, currentResult, offeredResult, safeExit, yMin, cliffAnnotation } = useMemo(() => {
           const data = getCliffChartData(Number(familySize), opts);
@@ -709,7 +789,7 @@
           }
 
           return { pts, currentResult, offeredResult, safeExit, yMin, cliffAnnotation };
-        }, [familySize, currentIncome, offeredIncome, adultCount, hasSection8Voucher]);
+        }, [familySize, currentIncome, offeredIncome, adultCount, hasSection8Voucher, pfccEnrolled]);
 
         useEffect(() => {
           if (!canvasRef.current) return;
@@ -750,9 +830,29 @@
               plugins: {
                 legend: { display: false },
                 tooltip: {
+                  backgroundColor: '#FAFAF9',
+                  titleColor: '#1C1917',
+                  bodyColor: '#57534E',
+                  borderColor: '#E7E5E4',
+                  borderWidth: 1,
+                  padding: 10,
                   callbacks: {
                     title: ctx => '$' + Number(ctx[0].parsed.x).toLocaleString() + '/yr wages',
-                    label: ctx => 'Effective take-home: $' + Math.round(ctx.parsed.y).toLocaleString(),
+                    label: ctx => {
+                      const income = Number(ctx.parsed.x);
+                      const r = calcEffectiveTakeHome(income, Number(familySize), { adultCount: Number(adultCount), hasVoucher: !!hasSection8Voucher, pfccEnrolled: !!pfccEnrolled });
+                      const lines = [
+                        `Wages:      $${Math.round(r.grossWages).toLocaleString()}`,
+                        `SNAP:      +$${Math.round(r.snapValue).toLocaleString()}`,
+                        `Medicaid:  +$${Math.round(r.medicaidValue).toLocaleString()}`,
+                        `Childcare: +$${Math.round(r.childcareValue).toLocaleString()}`,
+                        `ACA cost:  −$${Math.round(r.acaCost).toLocaleString()}`,
+                        ...(r.section8Value > 0 ? [`Section 8: +$${Math.round(r.section8Value).toLocaleString()}`] : []),
+                        `─────────────────────`,
+                        `Total: $${Math.round(r.totalEffective).toLocaleString()}/yr`,
+                      ];
+                      return lines;
+                    },
                   },
                 },
                 cliffChartPlugin: { lines, cliffAnnotation },
@@ -794,6 +894,14 @@
         const diff    = offeredResult.totalEffective - currentResult.totalEffective;
         const isWorse = diff < -500;
 
+        const chartBreakdown = isWorse ? [
+          { label: 'SNAP',      delta: Math.round((offeredResult.snapValue      - currentResult.snapValue)      / 12) },
+          { label: 'Medicaid',  delta: Math.round((offeredResult.medicaidValue  - currentResult.medicaidValue)  / 12) },
+          { label: 'ACA cost',  delta: Math.round((offeredResult.acaCost        - currentResult.acaCost)        / 12) },
+          { label: 'Childcare', delta: Math.round((offeredResult.childcareValue - currentResult.childcareValue) / 12) },
+          ...(opts.hasVoucher ? [{ label: 'Section 8', delta: Math.round((offeredResult.section8Value - currentResult.section8Value) / 12) }] : []),
+        ].filter(b => b.delta !== 0) : [];
+
         return (
           <div className="mt-4 bg-white rounded-2xl border border-stone-200 p-5">
             <h2 className="text-base font-semibold text-stone-800 mb-3">
@@ -822,6 +930,20 @@
                   ⚠ Taking this offer costs you {fmtDollars(Math.abs(diff))}/yr
                 </p>
                 <p className="text-xs text-red-600 mt-1">Benefits phase out faster than your wages grow.</p>
+                {chartBreakdown.length > 0 && (
+                  <div className="mt-2.5 pt-2.5 border-t border-red-200 space-y-1">
+                    {chartBreakdown.map(({ label, delta }) => {
+                      const isLoss = label === 'ACA cost' ? delta > 0 : delta < 0;
+                      const sign   = label === 'ACA cost' ? (delta > 0 ? '+' : '−') : (delta < 0 ? '−' : '+');
+                      return (
+                        <p key={label} className={`text-xs font-medium ${isLoss ? 'text-red-600' : 'text-stone-500'}`}
+                           style={{fontVariantNumeric:'tabular-nums'}}>
+                          {label} {sign}${Math.abs(delta).toLocaleString()}/mo
+                        </p>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
             )}
 
@@ -847,9 +969,10 @@
         const offeredIncome    = useCell('profile', 'current', 'offeredIncome')    ?? DEFAULTS.offeredIncome;
         const adultCount       = useCell('profile', 'current', 'adultCount')       ?? DEFAULTS.adultCount;
         const hasSection8Voucher = useCell('profile', 'current', 'hasSection8Voucher') ?? DEFAULTS.hasSection8Voucher;
+        const pfccEnrolled     = useCell('profile', 'current', 'pfccEnrolled')     ?? DEFAULTS.pfccEnrolled;
         const [copied, setCopied] = useState(false);
 
-        const opts = { adultCount: Number(adultCount), hasVoucher: !!hasSection8Voucher };
+        const opts = { adultCount: Number(adultCount), hasVoucher: !!hasSection8Voucher, pfccEnrolled: !!pfccEnrolled };
 
         const { current, offered, safeExit, benefitValue, diff } = useMemo(() => {
           const fs  = Number(familySize);
@@ -870,7 +993,7 @@
             }
           }
           return { current, offered, safeExit, benefitValue, diff };
-        }, [familySize, currentIncome, offeredIncome, adultCount, hasSection8Voucher]);
+        }, [familySize, currentIncome, offeredIncome, adultCount, hasSection8Voucher, pfccEnrolled]);
 
         const isWorse = diff < -500;
         const line1 = `Currently earning ${fmtDollars(Number(currentIncome))}/yr with ${fmtDollars(Math.abs(benefitValue))} in annual benefit value — ${fmtDollars(current.totalEffective)} total effective`;
@@ -916,6 +1039,35 @@
         );
       }
 
+      // ── SourcesFooter ──
+      function SourcesFooter() {
+        const sources = [
+          { label: 'Federal Poverty Level (HHS/ASPE 2026)', url: 'https://aspe.hhs.gov/topics/poverty-economic-mobility/poverty-guidelines' },
+          { label: 'SNAP eligibility & allotments (USDA FNS)', url: 'https://www.fns.usda.gov/snap/recipient/eligibility' },
+          { label: 'Ohio Medicaid expansion (medicaid.gov)', url: 'https://www.medicaid.gov/state-overviews/stateprofile.html?state=Ohio' },
+          { label: 'ACA premium tax credits 2026 (thefinancebuff.com)', url: 'https://thefinancebuff.com/aca-premium-tax-credit-percentages.html' },
+          { label: 'Ohio PFCC childcare subsidy (Ohio DCY)', url: 'https://childrenandyouth.ohio.gov/for-providers/resources/pfcc' },
+          { label: 'Section 8 / Housing Choice Vouchers (HUD)', url: 'https://www.hud.gov/helping-americans/housing-choice-vouchers-tenants' },
+        ];
+        return (
+          <details className="mt-6 border-t border-stone-200 pt-4">
+            <summary className="text-xs text-stone-400 cursor-pointer select-none hover:text-stone-600 list-none flex items-center gap-1.5">
+              <span>▸</span> Sources &amp; data references
+            </summary>
+            <ul className="mt-3 space-y-2">
+              {sources.map(({ label, url }) => (
+                <li key={url}>
+                  <a href={url} target="_blank" rel="noopener noreferrer"
+                     className="text-xs text-stone-500 hover:text-amber-600 underline underline-offset-2">
+                    {label}
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </details>
+        );
+      }
+
       // ── App ──
       function App() {
         useEffect(() => {
@@ -946,6 +1098,7 @@
                   </div>
                 </div>
                 <ManagerBrief />
+                <SourcesFooter />
               </div>
             </div>
           </Provider>
