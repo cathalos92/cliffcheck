@@ -80,7 +80,7 @@ A phone-first web app that lets users input their family situation and current b
 - **Deploy:** Cloudflare Workers via VibesOS pipeline
 
 ## Live URL
-**https://cathalos92.github.io/cliffcheck/**
+**https://cliffcheck.cliffcheck.workers.dev/**
 
 ## Success Criteria (Hackathon)
 - [x] Working Ohio benefit engine — SNAP, Medicaid, ACA, Section 8, PFCC childcare
