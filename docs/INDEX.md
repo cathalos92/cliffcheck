@@ -13,6 +13,7 @@
 | Document | Status | Last Updated | Consumer |
 |----------|--------|--------------|----------|
 | [ohio-benefit-rules.md](ohio-benefit-rules.md) | Active | 2026-04-21 | builder, planner |
+| [research/all-states-findings.md](research/all-states-findings.md) | Draft | 2026-04-22 | planner, builder |
 
 ## Reference
 
