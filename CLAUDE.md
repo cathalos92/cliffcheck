@@ -366,3 +366,31 @@ Call the adapter method with structured entries for each observation:
 - **commercial** — cost, pricing, or business model observations
 
 This is autonomous plumbing — log observations after release without asking.
+
+<!-- PAPI_ENRICHMENT_TIER_1 -->
+
+## Batch Building (unlocked at cycle 6)
+
+For cycles with multiple XS/S tasks, batch build them without stopping between each:
+- Build all XS/S tasks first, then M/L tasks
+- Group tasks touching the same module onto a shared branch where possible
+- One commit per task for traceable history, even on shared branches
+- After all tasks built, batch review them together
+
+## Strategy Reviews
+
+Every 5 cycles, PAPI offers a strategy review — a deep analysis of velocity, estimation accuracy, active decisions, and project direction.
+
+- **Don't skip them.** They're where compounding value comes from.
+- Strategy reviews run in their own session — don't mix with building.
+- Reviews produce recommendations that feed into the next plan.
+- If the review recommends AD changes, use `strategy_change` to apply them.
+
+## Active Decision Lifecycle
+
+Active Decisions (ADs) track architectural and product choices with confidence levels (LOW → MEDIUM → HIGH).
+
+- Check ADs before making architectural choices — run `health` for the AD summary.
+- ADs are for product/architecture choices only, not process preferences.
+- When new evidence appears, update AD confidence via `strategy_change`.
+- Supersede rather than overwrite — old decisions stay as history.

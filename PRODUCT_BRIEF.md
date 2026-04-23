@@ -1,6 +1,6 @@
 # CliffCheck — Benefits Cliff Navigator
 
-> Last reviewed: Cycle 4 — 21-04-2026
+> Last reviewed: Cycle 7 — 23-04-2026
 
 ## Problem Statement
 Millions of working-class Americans are trapped in benefits cliffs — income thresholds where a modest raise causes a disproportionate loss of government benefits (SNAP, Medicaid, Section 8, childcare subsidies). A $4,000 raise can cost $24,000+ in lost benefits. The math is deliberately hidden by fragmented benefit systems, and no consumer-facing tool exists to reveal it. This is the #1 mechanism that keeps the "permanent underclass" permanent.
@@ -16,12 +16,12 @@ A phone-first web app that lets users input their family situation and current b
 5. Shareable manager brief for salary negotiation conversations
 
 ## Demo Scenario
-**Ohio warehouse worker** — single parent, one child, $44k wages. Offered promotion to $54k.
-- Current effective take-home: ~$78k (wages + SNAP + childcare subsidy + Medicaid)
-- After promotion: ~$51k effective — loses SNAP, Medicaid, PFCC childcare subsidy, incurs ACA premiums
-- Net: $10k raise makes them ~$27k poorer in effective take-home
-- Safe exit: $86k+ (first income past all Ohio benefit cliffs)
-- The $44k→$48k range is the danger zone: a $4k raise drops effective income by $24k+ due to PFCC childcare cliff
+**Ohio warehouse worker** — two-adult household, two children, $44k wages. Offered promotion to $70k.
+- Current effective take-home: ~$70.6k (wages $44k + SNAP $2.2k + Medicaid proxy $4.5k + PFCC childcare $19.9k)
+- After promotion: ~$65.1k effective — loses SNAP, Medicaid, PFCC childcare; incurs ACA premiums
+- Net: $26k raise leaves them ~$5.5k worse off in effective take-home
+- Safe exit: ~$79k (first income where effective exceeds current + $2k buffer)
+- The $44k→$48k range is the sharpest danger zone — PFCC childcare phase-out dominates the cliff shape
 
 ## Target Users
 **Primary:** Working-class Americans earning $40k–$80k navigating benefits cliffs — warehouse workers, retail staff, gig workers, single parents. Mobile-primary, financially stressed, justifiably wary of cloud apps with financial data.
@@ -85,7 +85,7 @@ A phone-first web app that lets users input their family situation and current b
 ## Success Criteria (Hackathon)
 - [x] Working Ohio benefit engine — SNAP, Medicaid, ACA, Section 8, PFCC childcare
 - [x] Interactive cliff chart with real-time sliders
-- [x] Demo scenario flows end-to-end showing $27k effective loss
+- [x] Demo scenario flows end-to-end showing ~$5.5k effective loss on a $26k raise
 - [x] Shareable manager brief with copy-to-clipboard
 - [x] Safe exit hero number above the fold
 - [x] Deployed and accessible via URL
