@@ -249,24 +249,24 @@
         return points;
       }
 
-      // ── Keisha Validation ──────────────────────────────────────────────────
-      // Keisha: Ohio, family of 4, current wages $44K, offered $70K.
-      // NOTE: Product brief cited wages=$54K but engine analysis (task-2) showed
-      // $54K is above all Ohio benefit thresholds. $44K is the correct demo wage
-      // where SNAP + Medicaid + PFCC childcare are all active simultaneously.
-      (function validateKeisha() {
-        // Case 1: Keisha — family of 4, 2 adults, 2 children (default scenario)
+      // ── Demo Scenario Validation ───────────────────────────────────────────
+      // Ohio warehouse worker: family of 4, current wages $44K, offered $70K.
+      // $44K is the demo wage where SNAP + Medicaid + PFCC childcare are all
+      // active simultaneously (above $54K, most Ohio benefits have already
+      // thresholded out).
+      (function validateDemoScenario() {
+        // Case 1: Two-adult, two-child household (default scenario)
         const current = calcEffectiveTakeHome(44000, 4, { adultCount: 2 });
         const offered  = calcEffectiveTakeHome(70000, 4, { adultCount: 2 });
         const netDiff  = offered.totalEffective - current.totalEffective;
 
         // currentEffective ~$70,604 — wages + SNAP($2,184) + Medicaid($4,500) + PFCC($19,920)
         console.assert(current.totalEffective >= 68000 && current.totalEffective <= 73000,
-          'Keisha current effective out of range', current.totalEffective);
+          'Demo current effective out of range', current.totalEffective);
 
-        // netDiff ~-$5,536 — the $26K raise leaves Keisha $5.5K worse off
+        // netDiff ~-$5,536 — the $26K raise leaves the household $5.5K worse off
         console.assert(netDiff >= -8000 && netDiff <= -3000,
-          'Keisha netDiff out of range', netDiff);
+          'Demo netDiff out of range', netDiff);
 
         // safeExit ~$79,000 — first income where effective exceeds current + $2K
         let safeExit = null;
@@ -277,9 +277,9 @@
           }
         }
         console.assert(safeExit >= 78000 && safeExit <= 86000,
-          'Keisha safeExit out of range', safeExit);
+          'Demo safeExit out of range', safeExit);
 
-        console.log('[CliffCheck] Keisha (2-adult) PASSED', {
+        console.log('[CliffCheck] Demo (2-adult) PASSED', {
           currentEffective: current.totalEffective,
           offeredEffective: offered.totalEffective,
           netDiff,
