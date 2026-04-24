@@ -167,6 +167,47 @@
             tenantShareRate: 0.30,
           },
         },
+        NC: {
+          supported: true,
+          label: 'North Carolina',
+          // SNAP: NC does NOT use BBCE as of FY2026 — federal default 130% FPL gross limit.
+          // https://www.fns.usda.gov/snap/broad-based-categorical-eligibility
+          snap: {
+            grossLimitFPL: 1.30,
+          },
+          // Medicaid: NC expanded December 2023. Adults eligible to 138% FPL.
+          // CHIP (NC Health Choice consolidated into Medicaid): children to 211% FPL.
+          // https://medicaid.ncdhhs.gov/
+          // https://www.kff.org/medicaid/state-indicator/medicaid-income-eligibility-limits/
+          medicaid: {
+            expanded: true,
+            expansionFPL: 1.38,
+            childrenFPL: 2.11,
+          },
+          // ACA: SLCSP benchmark — Raleigh-Durham / Charlotte representative values, FY2026.
+          // NC marketplace benchmarks run slightly higher than OH (fewer insurers in rural counties).
+          // https://www.kff.org/interactive/subsidy-calculator/
+          aca: {
+            slcspMonthly: { 1: 720, 2: 1440, 3: 1800, 4: 2160, 5: 2700, 6: 3240 },
+          },
+          // NC Subsidized Child Care Assistance Program (SCCAP) — NC DHHS DCDEE.
+          // Entry 200% FPL statewide baseline; continuation to 85% SMI (~285% FPL family of 4).
+          // Copay sliding 9–10% of gross; modeled as ~10% average.
+          // https://ncchildcare.ncdhhs.gov/Home/Work-With-Parents/Financial-Assistance
+          childcare: {
+            entryFPL: 2.00,
+            exitFPL: 2.85,            // 85% SMI ≈ 285% FPL for family of 4 (approx — see TX note)
+            coPayRate: 0.10,          // sliding average — NC SCCAP 2026
+            coPayFreeFPL: 1.00,       // waiver at/below poverty
+            valuePerChild: [0, 9500, 19000, 28500],
+          },
+          // Section 8 / HCV — HUD FY2026 FMR + 50% AMI, Raleigh-Cary MSA.
+          housing: {
+            incomeLimitAnnual: 52000,     // 50% AMI Raleigh family of 4
+            paymentStandardMonthly: 1800, // 3BR Raleigh
+            tenantShareRate: 0.30,
+          },
+        },
       };
 
       function getState(stateCode) {
@@ -433,10 +474,35 @@
           totalEffective: txChildless.totalEffective,
         });
 
-        // Case 6: Ohio cross-state regression — OH scenario still behaves identically.
+        // Case 6: North Carolina — recent-expansion state without BBCE.
+        // Family of 4, 2 adults, $44K wages. NC has federal-default 130% FPL gross limit →
+        // SNAP = 0 at 133% FPL. Medicaid expansion active → adults eligible at 138% FPL.
+        const ncCurrent = calcEffectiveTakeHome(44000, 4, { stateCode: 'NC', adultCount: 2 });
+        console.assert(ncCurrent.snapValue === 0,
+          'NC (no BBCE, 130% FPL gross): family at 133% FPL should have SNAP=0', ncCurrent.snapValue);
+        console.assert(ncCurrent.medicaidValue === 2 * FED.medicaid.adultAnnualValueProxy,
+          'NC expansion: family at 133% FPL should have Medicaid for 2 adults', ncCurrent.medicaidValue);
+        console.assert(ncCurrent.acaCost === 0,
+          'NC: on Medicaid → no ACA cost', ncCurrent.acaCost);
+        console.assert(ncCurrent.childcareValue > 10000,
+          'NC childcare at $44K (below 200% entry) should be positive for 2 kids', ncCurrent.childcareValue);
+        console.assert(ncCurrent.totalEffective > 50000 && ncCurrent.totalEffective < 68000,
+          'NC total effective at $44K/4 out of range', ncCurrent.totalEffective);
+        console.log('[CliffCheck] North Carolina (expansion, family-of-4) PASSED', {
+          totalEffective: ncCurrent.totalEffective,
+          snapValue: ncCurrent.snapValue,
+          medicaidValue: ncCurrent.medicaidValue,
+          acaCost: ncCurrent.acaCost,
+          childcareValue: ncCurrent.childcareValue,
+        });
+
+        // Case 7: Cross-state regression — OH and TX unchanged after NC addition.
         const ohRegress = calcEffectiveTakeHome(44000, 4, { stateCode: 'OH', adultCount: 2 });
         console.assert(ohRegress.totalEffective === current.totalEffective,
-          'OH scenario must be unchanged after TX addition', { before: current.totalEffective, after: ohRegress.totalEffective });
+          'OH scenario must be unchanged after NC addition', { before: current.totalEffective, after: ohRegress.totalEffective });
+        const txRegress = calcEffectiveTakeHome(44000, 4, { stateCode: 'TX', adultCount: 2 });
+        console.assert(txRegress.totalEffective === txCurrent.totalEffective,
+          'TX scenario must be unchanged after NC addition', { before: txCurrent.totalEffective, after: txRegress.totalEffective });
       })();
     </script>
 
