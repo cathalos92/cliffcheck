@@ -241,7 +241,9 @@
       }
 
       // ── Section 8 / HCV Value ──────────────────────────────────────────────
-      // Returns $0 unless hasVoucher is true. Binary model pending task-34 (sliding).
+      // HUD sliding formula: subsidy = max(0, paymentStandard − tenantShare),
+      // where tenantShare = 30% of monthly adjusted gross income. Zero above the state
+      // income limit (50% AMI) or when the household has no voucher.
       function calcSection8Value(annualIncome, familySize, opts) {
         const { stateCode = 'OH', hasVoucher = false } = opts || {};
         const state = getState(stateCode);
