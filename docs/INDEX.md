@@ -19,7 +19,7 @@
 
 | Document | Status | Last Updated | Consumer |
 |----------|--------|--------------|----------|
-| *Add reference docs here* | | | |
+| [design/critique-2026-04-24.md](design/critique-2026-04-24.md) | Active | 2026-04-24 | planner, builder |
 
 ---
 
