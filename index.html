@@ -30,63 +30,36 @@
   <body>
     <div id="root"></div>
 
-    <!-- ── Ohio Benefit Calculation Engine ────────────────────────────────────
-         Sources: docs/ohio-benefit-rules.md (FY2026 rules, retrieved 2026-04-21)
+    <!-- ── Benefit Calculation Engine ─────────────────────────────────────────
+         Federal rules live in FED; per-state overrides live in STATES.
+         Sources: docs/ohio-benefit-rules.md (Ohio FY2026 rules, retrieved 2026-04-21)
+                  docs/research/all-states-findings.md (architecture pattern)
          All income values in annual dollars. Phase-outs as continuous functions. -->
     <script>
+      // ── FED: Federal-uniform rules shared across all states ────────────────
       // Federal Poverty Guidelines FY2026 — 48 contiguous states + D.C.
       // Source: HHS/ASPE, Federal Register 2026-01-15
       // https://aspe.hhs.gov/topics/poverty-economic-mobility/poverty-guidelines
-      const FPL_BASE_2026 = 15960;
-      const FPL_INCREMENT_2026 = 5680;
-
-      function getFPL(familySize) {
-        return FPL_BASE_2026 + (Math.max(1, familySize) - 1) * FPL_INCREMENT_2026;
-      }
-
-      function getFPLPercent(annualIncome, familySize) {
-        return annualIncome / getFPL(familySize);
-      }
-
-      // Ohio rule tables
-      const OH = {
-        // SNAP: USDA FNS FY2026; Ohio JFS (Ohio BBCE)
-        // https://www.fns.usda.gov/snap/recipient/eligibility
-        // https://www.snapscreener.com/guides/ohio
+      // SNAP federal baseline: USDA FNS FY2026
+      // https://www.fns.usda.gov/snap/recipient/eligibility
+      // ACA PTC: IRC §36B; standard FY2026 applicable-percentage table
+      // https://thefinancebuff.com/aca-premium-tax-credit-percentages.html
+      // NOTE: ARP/IRA enhanced PTCs expired end of 2025 — 400% FPL cliff returned 2026.
+      const FED = {
+        fpl: {
+          base2026: 15960,
+          increment2026: 5680,
+        },
         snap: {
-          grossLimitFPL: 2.00,          // Ohio BBCE: 200% FPL (federal default is 130%)
-          netLimitFPL: 1.00,            // 100% FPL net income limit
-          // Standard deduction $/month indexed by household size 1–6
+          netLimitFPL: 1.00,
           stdDeduction:        [0, 209, 209, 209, 228, 247, 266],
-          eidRate: 0.20,                // 20% earned income deduction
-          benefitReductionRate: 0.30,   // benefit reduces $0.30 per $1 net income
-          // Maximum monthly benefit (Oct 2025 – Sep 2026) by household size
+          eidRate: 0.20,
+          benefitReductionRate: 0.30,
           maxMonthlyBenefit:   [0, 298, 549, 785, 994, 1183, 1419],
         },
-
-        // Medicaid: Ohio Dept. of Medicaid; Ohio expanded 2014
-        // https://www.medicaid.gov/state-overviews/stateprofile.html?state=Ohio
-        medicaid: {
-          expansionFPL: 1.38,  // Adults 19–64: 138% FPL (133% + 5% income disregard)
-          childrenFPL: 2.16,   // Children: 216% FPL
-          // Dollar proxy for the value of free Medicaid coverage (per adult per year).
-          // Represents the marketplace premium cost a family avoids by having Medicaid.
-          // Conservative estimate; actual actuarial value for low-income adults is higher.
-          adultAnnualValueProxy: 2250, // $/adult/year (2 adults in family of 4 = $4,500)
-        },
-
-        // ACA Marketplace: Congress.gov CRS R48290; thefinancebuff.com
-        // https://thefinancebuff.com/aca-premium-tax-credit-percentages.html
-        // NOTE: ARP/IRA enhanced PTCs expired end of 2025 — standard table applies for 2026.
-        //       The 400% FPL subsidy cliff RETURNED in 2026.
         aca: {
-          eligibleFPLMin: 1.00,  // Below this → Medicaid eligible; no PTC
-          cliffFPL: 4.00,        // Above this → no PTC; hard cliff
-          // SLCSP (Second Lowest Cost Silver Plan) benchmark — Ohio estimate 2026
-          // Varies by county; central/northeast OH representative values
-          slcspMonthly: { 1: 700, 2: 1400, 3: 1750, 4: 2100, 5: 2625, 6: 3150 },
-          // Applicable percentage table: [fplFraction, maxContributionPct]
-          // PTC = SLCSP_premium - (income × applicablePct). Interpolate linearly.
+          eligibleFPLMin: 1.00,
+          cliffFPL: 4.00,
           pctTable: [
             [1.00, 0.0210],
             [1.33, 0.0314],
@@ -97,54 +70,94 @@
             [4.00, 0.0996],
           ],
         },
-
-        // Ohio PFCC Childcare Subsidy: Ohio DCY; childcarecostfinder.com
-        // https://childrenandyouth.ohio.gov/for-providers/resources/pfcc
-        pfcc: {
-          entryFPL: 1.45,    // New enrollment: ≤145% FPL
-          exitFPL: 3.00,     // Continuation exit: ≤300% FPL (enrolled families only)
-          coPayRate: 0.07,   // 7% of annual income cap (effective July 2026)
-          coPayFreeFPL: 1.00, // Below 100% FPL: $0 co-pay
-          // Annual gross childcare value — Ohio 75th percentile market rate
-          // Indexed by number of children (0–3)
-          childcareValuePerChild: [0, 11000, 23000, 33000],
-        },
-
-        // Section 8 / HCV: HUD; Columbus MHA (CMHA)
-        // https://www.hud.gov/helping-americans/housing-choice-vouchers-tenants
-        // Modeled as inactive by default — Ohio PHAs have closed waitlists.
-        section8: {
-          incomeLimitAnnual: 52500,     // 50% AMI for Columbus family of 4 (2026 est.)
-          paymentStandardMonthly: 1750, // 3BR Columbus 2026 estimate
-          tenantShareRate: 0.30,
+        medicaid: {
+          // Dollar proxy for the value of free Medicaid coverage (per adult per year).
+          // Represents the marketplace premium cost a family avoids by having Medicaid.
+          adultAnnualValueProxy: 2250, // $/adult/year
         },
       };
 
+      function getFPL(familySize) {
+        return FED.fpl.base2026 + (Math.max(1, familySize) - 1) * FED.fpl.increment2026;
+      }
+
+      function getFPLPercent(annualIncome, familySize) {
+        return annualIncome / getFPL(familySize);
+      }
+
+      // ── STATES: Per-state rule tables keyed by 2-letter code ───────────────
+      // Each state exposes: supported, label, snap, medicaid, aca, childcare, housing.
+      // To add a state: create STATES.XX with these fields and a validateXX() block.
+      const STATES = {
+        OH: {
+          supported: true,
+          label: 'Ohio',
+          // SNAP: Ohio BBCE (200% FPL gross limit) — federal default is 130%.
+          snap: {
+            grossLimitFPL: 2.00,
+          },
+          // Medicaid: Ohio expanded 2014. Adults 19–64 eligible to 138% FPL.
+          // https://www.medicaid.gov/state-overviews/stateprofile.html?state=Ohio
+          medicaid: {
+            expanded: true,
+            expansionFPL: 1.38,  // 133% + 5% income disregard
+            childrenFPL: 2.16,
+          },
+          // ACA: SLCSP benchmark — central/northeast Ohio representative values, FY2026.
+          aca: {
+            slcspMonthly: { 1: 700, 2: 1400, 3: 1750, 4: 2100, 5: 2625, 6: 3150 },
+          },
+          // Ohio PFCC Childcare Subsidy — Ohio DCY
+          // https://childrenandyouth.ohio.gov/for-providers/resources/pfcc
+          childcare: {
+            entryFPL: 1.45,
+            exitFPL: 3.00,
+            coPayRate: 0.07,     // Effective July 2026
+            coPayFreeFPL: 1.00,
+            // Annual gross childcare value — Ohio 75th percentile market rate
+            valuePerChild: [0, 11000, 23000, 33000],
+          },
+          // Section 8 / HCV — HUD; Columbus MHA (CMHA) 2026 est.
+          // Modeled inactive by default (Ohio PHA waitlists closed).
+          housing: {
+            incomeLimitAnnual: 52500,     // 50% AMI Columbus family of 4
+            paymentStandardMonthly: 1750, // 3BR Columbus
+            tenantShareRate: 0.30,
+          },
+        },
+      };
+
+      function getState(stateCode) {
+        return STATES[stateCode] || STATES.OH;
+      }
+
       // ── SNAP ───────────────────────────────────────────────────────────────
       // Graduated phase-out — not a binary cliff. $0.30 reduction per $1 net income.
-      function calcSnap(annualIncome, familySize) {
+      function calcSnap(annualIncome, familySize, opts) {
+        const { stateCode = 'OH' } = opts || {};
+        const state = getState(stateCode);
         const fpl = getFPL(familySize);
         const size = Math.min(Math.max(1, familySize), 6);
         const grossMonthly = annualIncome / 12;
 
-        // Gross income test (Ohio BBCE: 200% FPL)
-        if (annualIncome > fpl * OH.snap.grossLimitFPL) return 0;
+        // Gross income test (state BBCE limit)
+        if (annualIncome > fpl * state.snap.grossLimitFPL) return 0;
 
-        const stdDed = OH.snap.stdDeduction[size];
-        const eid = grossMonthly * OH.snap.eidRate;
+        const stdDed = FED.snap.stdDeduction[size];
+        const eid = grossMonthly * FED.snap.eidRate;
         const netMonthly = Math.max(0, grossMonthly - stdDed - eid);
 
-        // Net income test (100% FPL)
+        // Net income test (federal 100% FPL)
         if (netMonthly > fpl / 12) return 0;
 
-        const maxBenefit = OH.snap.maxMonthlyBenefit[size];
-        const monthly = Math.max(0, maxBenefit - Math.round(netMonthly * OH.snap.benefitReductionRate));
+        const maxBenefit = FED.snap.maxMonthlyBenefit[size];
+        const monthly = Math.max(0, maxBenefit - Math.round(netMonthly * FED.snap.benefitReductionRate));
         return monthly * 12;
       }
 
       // ── ACA applicable percentage (piecewise linear interpolation) ─────────
       function _acaApplicablePct(fplFraction) {
-        const t = OH.aca.pctTable;
+        const t = FED.aca.pctTable;
         if (fplFraction <= t[0][0]) return t[0][1];
         if (fplFraction >= t[t.length - 1][0]) return t[t.length - 1][1];
         for (let i = 1; i < t.length; i++) {
@@ -158,77 +171,105 @@
 
       // ── ACA Premium Cost (annual expense, positive value) ──────────────────
       // Hard cliff at 400% FPL: below = subsidised; above = full premium.
-      function calcACAPremium(annualIncome, familySize) {
+      function calcACAPremium(annualIncome, familySize, opts) {
+        const { stateCode = 'OH' } = opts || {};
+        const state = getState(stateCode);
         const fpl = getFPL(familySize);
         const fplFraction = annualIncome / fpl;
         const size = Math.min(Math.max(1, familySize), 6);
-        const slcspAnnual = (OH.aca.slcspMonthly[size] || OH.aca.slcspMonthly[6]) * 12;
+        const slcsp = state.aca.slcspMonthly;
+        const slcspAnnual = (slcsp[size] || slcsp[6]) * 12;
 
         // Below 100% FPL → Medicaid; no ACA cost
-        if (fplFraction < OH.aca.eligibleFPLMin) return 0;
+        if (fplFraction < FED.aca.eligibleFPLMin) return 0;
         // Above 400% FPL → no PTC; pay full premium (hard cliff). At exactly 400% PTC still applies.
-        if (fplFraction > OH.aca.cliffFPL) return slcspAnnual;
+        if (fplFraction > FED.aca.cliffFPL) return slcspAnnual;
 
         const contribution = Math.round(annualIncome * _acaApplicablePct(fplFraction));
         return Math.min(contribution, slcspAnnual);
       }
 
-      // ── Medicaid Value (annual dollar proxy for free coverage) ─────────────
-      // Binary cliff at 138% FPL for adults. Children eligible to 216% FPL.
-      // Value proxy = avoided insurance cost (adults × adultAnnualValueProxy).
-      function calcMedicaidValue(annualIncome, familySize, adultCount) {
-        const fpl = getFPL(familySize);
-        if (annualIncome / fpl <= OH.medicaid.expansionFPL) {
-          const adults = Math.max(1, Math.min(adultCount, familySize));
-          return adults * OH.medicaid.adultAnnualValueProxy;
+      // ── Medicaid eligibility check (boolean) ───────────────────────────────
+      // Expansion states: adults eligible ≤ expansionFPL.
+      // Non-expansion states (task-37+): adults eligible per parentFPL/childlessAdultFPL.
+      function isOnMedicaid(annualIncome, familySize, opts) {
+        const { stateCode = 'OH' } = opts || {};
+        const state = getState(stateCode);
+        const fplFraction = annualIncome / getFPL(familySize);
+        if (state.medicaid.expanded) {
+          return fplFraction <= state.medicaid.expansionFPL;
         }
-        return 0;
+        // Non-expansion: conservative — adults only eligible at parentFPL.
+        // Accurate per-adult branching (childless vs parent) ships with TX (task-37).
+        const parentFPL = state.medicaid.parentFPL ?? 0;
+        return fplFraction <= parentFPL;
       }
 
-      // ── PFCC Childcare Subsidy ─────────────────────────────────────────────
-      // Entry cliff at 145% FPL. Enrolled families exit at 300% FPL.
+      // ── Medicaid Value (annual dollar proxy for free coverage) ─────────────
+      // Value proxy = avoided insurance cost (adults × adultAnnualValueProxy).
+      function calcMedicaidValue(annualIncome, familySize, opts) {
+        const { stateCode = 'OH', adultCount = 2 } = opts || {};
+        if (!isOnMedicaid(annualIncome, familySize, { stateCode })) return 0;
+        const adults = Math.max(1, Math.min(adultCount, familySize));
+        return adults * FED.medicaid.adultAnnualValueProxy;
+      }
+
+      // ── Childcare Subsidy ──────────────────────────────────────────────────
+      // Entry cliff at state.childcare.entryFPL. Enrolled families exit at exitFPL.
       // numChildren = familySize - adultCount (supports single-parent households).
-      function calcChildcareSubsidy(annualIncome, familySize, pfccEnrolled, adultCount) {
+      function calcChildcareSubsidy(annualIncome, familySize, opts) {
+        const { stateCode = 'OH', pfccEnrolled = false, adultCount = 2 } = opts || {};
+        const state = getState(stateCode);
+        const cc = state.childcare;
         const fpl = getFPL(familySize);
         const fplFraction = annualIncome / fpl;
         const numChildren = Math.max(0, familySize - adultCount);
-        const idx = Math.min(numChildren, OH.pfcc.childcareValuePerChild.length - 1);
-        const grossValue = OH.pfcc.childcareValuePerChild[idx];
+        const idx = Math.min(numChildren, cc.valuePerChild.length - 1);
+        const grossValue = cc.valuePerChild[idx];
 
         if (grossValue === 0) return 0;
 
-        // Entry: ≤145% FPL. Continuation for enrolled: ≤300% FPL.
-        const eligible = fplFraction <= OH.pfcc.entryFPL ||
-                         (pfccEnrolled && fplFraction <= OH.pfcc.exitFPL);
+        // Entry: ≤ entryFPL. Continuation for enrolled: ≤ exitFPL.
+        const eligible = fplFraction <= cc.entryFPL ||
+                         (pfccEnrolled && fplFraction <= cc.exitFPL);
         if (!eligible) return 0;
 
-        const coPay = fplFraction <= OH.pfcc.coPayFreeFPL
+        const coPay = fplFraction <= cc.coPayFreeFPL
           ? 0
-          : Math.round(annualIncome * OH.pfcc.coPayRate);
+          : Math.round(annualIncome * cc.coPayRate);
         return Math.max(0, grossValue - coPay);
       }
 
       // ── Section 8 / HCV Value ──────────────────────────────────────────────
-      // Returns $0 by default (waitlist-based; most Ohio families don't have a voucher).
-      function calcSection8Value(annualIncome, familySize, hasVoucher) {
+      // Returns $0 unless hasVoucher is true. Binary model pending task-34 (sliding).
+      function calcSection8Value(annualIncome, familySize, opts) {
+        const { stateCode = 'OH', hasVoucher = false } = opts || {};
+        const state = getState(stateCode);
+        const h = state.housing;
         if (!hasVoucher) return 0;
-        if (annualIncome > OH.section8.incomeLimitAnnual) return 0;
-        const tenantShare = (annualIncome / 12) * OH.section8.tenantShareRate;
-        return Math.max(0, Math.round((OH.section8.paymentStandardMonthly - tenantShare) * 12));
+        if (annualIncome > h.incomeLimitAnnual) return 0;
+        const tenantShare = (annualIncome / 12) * h.tenantShareRate;
+        return Math.max(0, Math.round((h.paymentStandardMonthly - tenantShare) * 12));
       }
 
       // ── Effective Take-Home ────────────────────────────────────────────────
       // Returns breakdown + totalEffective for any income across all programs.
-      // opts: { pfccEnrolled: bool, hasVoucher: bool }
+      // opts: { stateCode, pfccEnrolled, hasVoucher, adultCount }
       function calcEffectiveTakeHome(annualIncome, familySize, opts) {
-        const { pfccEnrolled = false, hasVoucher = false, adultCount = 2 } = opts || {};
-        const onMedicaid = annualIncome / getFPL(familySize) <= OH.medicaid.expansionFPL;
+        const {
+          stateCode = 'OH',
+          pfccEnrolled = false,
+          hasVoucher = false,
+          adultCount = 2,
+        } = opts || {};
+        const calcOpts = { stateCode, pfccEnrolled, hasVoucher, adultCount };
+        const onMedicaid = isOnMedicaid(annualIncome, familySize, calcOpts);
 
-        const snapValue      = calcSnap(annualIncome, familySize);
-        const medicaidValue  = onMedicaid ? calcMedicaidValue(annualIncome, familySize, adultCount) : 0;
-        const acaCost        = onMedicaid ? 0 : calcACAPremium(annualIncome, familySize);
-        const section8Value  = calcSection8Value(annualIncome, familySize, hasVoucher);
-        const childcareValue = calcChildcareSubsidy(annualIncome, familySize, pfccEnrolled, adultCount);
+        const snapValue      = calcSnap(annualIncome, familySize, calcOpts);
+        const medicaidValue  = onMedicaid ? calcMedicaidValue(annualIncome, familySize, calcOpts) : 0;
+        const acaCost        = onMedicaid ? 0 : calcACAPremium(annualIncome, familySize, calcOpts);
+        const section8Value  = calcSection8Value(annualIncome, familySize, calcOpts);
+        const childcareValue = calcChildcareSubsidy(annualIncome, familySize, calcOpts);
 
         const totalEffective = Math.round(
           annualIncome + snapValue + medicaidValue + section8Value + childcareValue - acaCost
@@ -249,24 +290,24 @@
         return points;
       }
 
-      // ── Keisha Validation ──────────────────────────────────────────────────
-      // Keisha: Ohio, family of 4, current wages $44K, offered $70K.
-      // NOTE: Product brief cited wages=$54K but engine analysis (task-2) showed
-      // $54K is above all Ohio benefit thresholds. $44K is the correct demo wage
-      // where SNAP + Medicaid + PFCC childcare are all active simultaneously.
-      (function validateKeisha() {
-        // Case 1: Keisha — family of 4, 2 adults, 2 children (default scenario)
+      // ── Demo Scenario Validation ───────────────────────────────────────────
+      // Ohio warehouse worker: family of 4, current wages $44K, offered $70K.
+      // $44K is the demo wage where SNAP + Medicaid + PFCC childcare are all
+      // active simultaneously (above $54K, most Ohio benefits have already
+      // thresholded out).
+      (function validateDemoScenario() {
+        // Case 1: Two-adult, two-child household (default scenario)
         const current = calcEffectiveTakeHome(44000, 4, { adultCount: 2 });
         const offered  = calcEffectiveTakeHome(70000, 4, { adultCount: 2 });
         const netDiff  = offered.totalEffective - current.totalEffective;
 
         // currentEffective ~$70,604 — wages + SNAP($2,184) + Medicaid($4,500) + PFCC($19,920)
         console.assert(current.totalEffective >= 68000 && current.totalEffective <= 73000,
-          'Keisha current effective out of range', current.totalEffective);
+          'Demo current effective out of range', current.totalEffective);
 
-        // netDiff ~-$5,536 — the $26K raise leaves Keisha $5.5K worse off
+        // netDiff ~-$5,536 — the $26K raise leaves the household $5.5K worse off
         console.assert(netDiff >= -8000 && netDiff <= -3000,
-          'Keisha netDiff out of range', netDiff);
+          'Demo netDiff out of range', netDiff);
 
         // safeExit ~$79,000 — first income where effective exceeds current + $2K
         let safeExit = null;
@@ -277,9 +318,9 @@
           }
         }
         console.assert(safeExit >= 78000 && safeExit <= 86000,
-          'Keisha safeExit out of range', safeExit);
+          'Demo safeExit out of range', safeExit);
 
-        console.log('[CliffCheck] Keisha (2-adult) PASSED', {
+        console.log('[CliffCheck] Demo (2-adult) PASSED', {
           currentEffective: current.totalEffective,
           offeredEffective: offered.totalEffective,
           netDiff,
@@ -290,7 +331,7 @@
         // SNAP allotment should be higher (more children), childcare covers 3 kids
         const spCurrent = calcEffectiveTakeHome(44000, 4, { adultCount: 1 });
         // Medicaid value should be 1 adult proxy ($2,250) not 2 ($4,500)
-        console.assert(spCurrent.medicaidValue === OH.medicaid.adultAnnualValueProxy,
+        console.assert(spCurrent.medicaidValue === FED.medicaid.adultAnnualValueProxy,
           'Single-parent Medicaid should be 1-adult proxy', spCurrent.medicaidValue);
         // PFCC childcare should cover 3 children (idx=3, $33,000 gross value)
         console.assert(spCurrent.childcareValue > 20000,
@@ -333,7 +374,7 @@
 
       // ── Store (module-level singleton) ──
       const store = createStore();
-      const DEFAULTS = { state: 'OH', familySize: 4, currentIncome: 44000, offeredIncome: 70000, adultCount: 2, hasSection8Voucher: false, pfccEnrolled: false };
+      const DEFAULTS = { stateCode: 'OH', familySize: 4, currentIncome: 44000, offeredIncome: 70000, adultCount: 2, hasSection8Voucher: false, pfccEnrolled: false };
 
       // ── Helpers ──
       function fmtDollars(n) {
@@ -531,6 +572,7 @@
 
       // ── LiveSummary ──
       function LiveSummary() {
+        const stateCode        = useCell('profile', 'current', 'stateCode')        ?? DEFAULTS.stateCode;
         const familySize       = useCell('profile', 'current', 'familySize')       ?? DEFAULTS.familySize;
         const currentIncome    = useCell('profile', 'current', 'currentIncome')    ?? DEFAULTS.currentIncome;
         const offeredIncome    = useCell('profile', 'current', 'offeredIncome')    ?? DEFAULTS.offeredIncome;
@@ -538,15 +580,15 @@
         const hasSection8Voucher = useCell('profile', 'current', 'hasSection8Voucher') ?? DEFAULTS.hasSection8Voucher;
         const pfccEnrolled     = useCell('profile', 'current', 'pfccEnrolled')     ?? DEFAULTS.pfccEnrolled;
 
-        const opts = { adultCount: Number(adultCount), hasVoucher: !!hasSection8Voucher, pfccEnrolled: !!pfccEnrolled };
+        const opts = { stateCode, adultCount: Number(adultCount), hasVoucher: !!hasSection8Voucher, pfccEnrolled: !!pfccEnrolled };
 
         const current = useMemo(
           () => calcEffectiveTakeHome(Number(currentIncome), Number(familySize), opts),
-          [currentIncome, familySize, adultCount, hasSection8Voucher, pfccEnrolled]
+          [stateCode, currentIncome, familySize, adultCount, hasSection8Voucher, pfccEnrolled]
         );
         const offered = useMemo(
           () => calcEffectiveTakeHome(Number(offeredIncome), Number(familySize), opts),
-          [offeredIncome, familySize, adultCount, hasSection8Voucher]
+          [stateCode, offeredIncome, familySize, adultCount, hasSection8Voucher, pfccEnrolled]
         );
 
         const diff = offered.totalEffective - current.totalEffective;
@@ -567,7 +609,7 @@
             }
           }
           return null;
-        }, [familySize, currentIncome, adultCount, hasSection8Voucher, pfccEnrolled]);
+        }, [stateCode, familySize, currentIncome, adultCount, hasSection8Voucher, pfccEnrolled]);
 
         // Per-benefit deltas (monthly, for breakdown display)
         const breakdown = isWorse ? [
@@ -742,6 +784,7 @@
         const canvasRef = useRef(null);
         const chartRef  = useRef(null);
 
+        const stateCode        = useCell('profile', 'current', 'stateCode')        ?? DEFAULTS.stateCode;
         const familySize       = useCell('profile', 'current', 'familySize')       ?? DEFAULTS.familySize;
         const currentIncome    = useCell('profile', 'current', 'currentIncome')    ?? DEFAULTS.currentIncome;
         const offeredIncome    = useCell('profile', 'current', 'offeredIncome')    ?? DEFAULTS.offeredIncome;
@@ -749,7 +792,7 @@
         const hasSection8Voucher = useCell('profile', 'current', 'hasSection8Voucher') ?? DEFAULTS.hasSection8Voucher;
         const pfccEnrolled     = useCell('profile', 'current', 'pfccEnrolled')     ?? DEFAULTS.pfccEnrolled;
 
-        const opts = { adultCount: Number(adultCount), hasVoucher: !!hasSection8Voucher, pfccEnrolled: !!pfccEnrolled };
+        const opts = { stateCode, adultCount: Number(adultCount), hasVoucher: !!hasSection8Voucher, pfccEnrolled: !!pfccEnrolled };
 
         const { pts, currentResult, offeredResult, safeExit, yMin, cliffAnnotation } = useMemo(() => {
           const data = getCliffChartData(Number(familySize), opts);
@@ -789,7 +832,7 @@
           }
 
           return { pts, currentResult, offeredResult, safeExit, yMin, cliffAnnotation };
-        }, [familySize, currentIncome, offeredIncome, adultCount, hasSection8Voucher, pfccEnrolled]);
+        }, [stateCode, familySize, currentIncome, offeredIncome, adultCount, hasSection8Voucher, pfccEnrolled]);
 
         useEffect(() => {
           if (!canvasRef.current) return;
@@ -840,7 +883,7 @@
                     title: ctx => '$' + Number(ctx[0].parsed.x).toLocaleString() + '/yr wages',
                     label: ctx => {
                       const income = Number(ctx.parsed.x);
-                      const r = calcEffectiveTakeHome(income, Number(familySize), { adultCount: Number(adultCount), hasVoucher: !!hasSection8Voucher, pfccEnrolled: !!pfccEnrolled });
+                      const r = calcEffectiveTakeHome(income, Number(familySize), { stateCode, adultCount: Number(adultCount), hasVoucher: !!hasSection8Voucher, pfccEnrolled: !!pfccEnrolled });
                       const lines = [
                         `Wages:      $${Math.round(r.grossWages).toLocaleString()}`,
                         `SNAP:      +$${Math.round(r.snapValue).toLocaleString()}`,
@@ -964,6 +1007,7 @@
 
       // ── ManagerBrief ──
       function ManagerBrief() {
+        const stateCode        = useCell('profile', 'current', 'stateCode')        ?? DEFAULTS.stateCode;
         const familySize       = useCell('profile', 'current', 'familySize')       ?? DEFAULTS.familySize;
         const currentIncome    = useCell('profile', 'current', 'currentIncome')    ?? DEFAULTS.currentIncome;
         const offeredIncome    = useCell('profile', 'current', 'offeredIncome')    ?? DEFAULTS.offeredIncome;
@@ -972,7 +1016,7 @@
         const pfccEnrolled     = useCell('profile', 'current', 'pfccEnrolled')     ?? DEFAULTS.pfccEnrolled;
         const [copied, setCopied] = useState(false);
 
-        const opts = { adultCount: Number(adultCount), hasVoucher: !!hasSection8Voucher, pfccEnrolled: !!pfccEnrolled };
+        const opts = { stateCode, adultCount: Number(adultCount), hasVoucher: !!hasSection8Voucher, pfccEnrolled: !!pfccEnrolled };
 
         const { current, offered, safeExit, benefitValue, diff } = useMemo(() => {
           const fs  = Number(familySize);
@@ -993,7 +1037,7 @@
             }
           }
           return { current, offered, safeExit, benefitValue, diff };
-        }, [familySize, currentIncome, offeredIncome, adultCount, hasSection8Voucher, pfccEnrolled]);
+        }, [stateCode, familySize, currentIncome, offeredIncome, adultCount, hasSection8Voucher, pfccEnrolled]);
 
         const isWorse = diff < -500;
         const line1 = `Currently earning ${fmtDollars(Number(currentIncome))}/yr with ${fmtDollars(Math.abs(benefitValue))} in annual benefit value — ${fmtDollars(current.totalEffective)} total effective`;
