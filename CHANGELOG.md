@@ -1,9 +1,8 @@
 # Changelog
 
-## v0.6.0 — 2026-04-23T18:48:58.398Z
+## v0.7.0 — 2026-04-24T13:56:19.941Z
 
-- 424b547 Merge pull request #6 from cathalos92/feat/task-19
-- 976740a feat(task-19): Research and scope all-states support — estimate effort, data sources, and architecture required
-- 73bb93e chore: install design-critique skill from PapiUI
-- 40572e4 chore: ignore .wrangler local state
-- 81c25a3 chore: deploy to Cloudflare Workers, update live URL
+- cc93272 Merge pull request #7 from cathalos92/feat/task-35
+- 46df3ae feat(task-35): Refactor OH module to FED + STATES pattern — extract federal-uniform rules into shared FED namespace, parameterise calc functions with stateCode
+- dfdda3b docs: add C7 design critique + register in doc index
+- d38f3ef fix: align demo scenario across brief and engine; rename validateKeisha
