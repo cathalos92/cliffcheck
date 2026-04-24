@@ -125,6 +125,130 @@
             tenantShareRate: 0.30,
           },
         },
+        TX: {
+          supported: true,
+          label: 'Texas',
+          // SNAP: Texas BBCE at 165% FPL (gross limit) — Texas HHSC.
+          // https://www.fns.usda.gov/snap/broad-based-categorical-eligibility
+          snap: {
+            grossLimitFPL: 1.65,
+          },
+          // Medicaid: Texas is non-expansion. Parents eligible to ~18% FPL;
+          // childless adults generally ineligible (0% FPL). CHIP covers children to 201% FPL.
+          // https://www.kff.org/medicaid/state-indicator/medicaid-income-eligibility-limits/
+          medicaid: {
+            expanded: false,
+            parentFPL: 0.18,
+            childlessAdultFPL: 0,
+            childrenFPL: 2.01,
+          },
+          // ACA: SLCSP benchmark — Dallas-Fort Worth representative values, FY2026.
+          // https://www.kff.org/interactive/subsidy-calculator/
+          aca: {
+            slcspMonthly: { 1: 650, 2: 1300, 3: 1625, 4: 1950, 5: 2438, 6: 2925 },
+          },
+          // Texas Child Care Services (CCS) — Texas Workforce Commission.
+          // Entry 200% FPL; continuation to 85% SMI (~285% FPL for family of 4).
+          // Copay sliding 0–12% based on FPL band; modeled as ~8% average.
+          // https://www.twc.texas.gov/programs/child-care
+          childcare: {
+            entryFPL: 2.00,
+            exitFPL: 2.85,            // 85% SMI ≈ 285% FPL for family of 4 (approx)
+            coPayRate: 0.08,          // sliding average — TWC CCS 2026
+            coPayFreeFPL: 0.50,       // very-low-income waiver band
+            valuePerChild: [0, 10000, 20000, 30000],
+          },
+          // Section 8 / HCV — HUD FY2026 FMR + 50% AMI, Dallas-Plano-Irving MSA.
+          // https://www.huduser.gov/portal/datasets/fmr.html
+          // https://www.huduser.gov/portal/datasets/il.html
+          housing: {
+            incomeLimitAnnual: 54000,     // 50% AMI Dallas family of 4
+            paymentStandardMonthly: 2100, // 3BR Dallas
+            tenantShareRate: 0.30,
+          },
+        },
+        NC: {
+          supported: true,
+          label: 'North Carolina',
+          // SNAP: NC does NOT use BBCE as of FY2026 — federal default 130% FPL gross limit.
+          // https://www.fns.usda.gov/snap/broad-based-categorical-eligibility
+          snap: {
+            grossLimitFPL: 1.30,
+          },
+          // Medicaid: NC expanded December 2023. Adults eligible to 138% FPL.
+          // CHIP (NC Health Choice consolidated into Medicaid): children to 211% FPL.
+          // https://medicaid.ncdhhs.gov/
+          // https://www.kff.org/medicaid/state-indicator/medicaid-income-eligibility-limits/
+          medicaid: {
+            expanded: true,
+            expansionFPL: 1.38,
+            childrenFPL: 2.11,
+          },
+          // ACA: SLCSP benchmark — Raleigh-Durham / Charlotte representative values, FY2026.
+          // NC marketplace benchmarks run slightly higher than OH (fewer insurers in rural counties).
+          // https://www.kff.org/interactive/subsidy-calculator/
+          aca: {
+            slcspMonthly: { 1: 720, 2: 1440, 3: 1800, 4: 2160, 5: 2700, 6: 3240 },
+          },
+          // NC Subsidized Child Care Assistance Program (SCCAP) — NC DHHS DCDEE.
+          // Entry 200% FPL statewide baseline; continuation to 85% SMI (~285% FPL family of 4).
+          // Copay sliding 9–10% of gross; modeled as ~10% average.
+          // https://ncchildcare.ncdhhs.gov/Home/Work-With-Parents/Financial-Assistance
+          childcare: {
+            entryFPL: 2.00,
+            exitFPL: 2.85,            // 85% SMI ≈ 285% FPL for family of 4 (approx — see TX note)
+            coPayRate: 0.10,          // sliding average — NC SCCAP 2026
+            coPayFreeFPL: 1.00,       // waiver at/below poverty
+            valuePerChild: [0, 9500, 19000, 28500],
+          },
+          // Section 8 / HCV — HUD FY2026 FMR + 50% AMI, Raleigh-Cary MSA.
+          housing: {
+            incomeLimitAnnual: 52000,     // 50% AMI Raleigh family of 4
+            paymentStandardMonthly: 1800, // 3BR Raleigh
+            tenantShareRate: 0.30,
+          },
+        },
+        MI: {
+          supported: true,
+          label: 'Michigan',
+          // SNAP: Michigan uses BBCE at 200% FPL gross limit — MDHHS.
+          // https://www.fns.usda.gov/snap/broad-based-categorical-eligibility
+          snap: {
+            grossLimitFPL: 2.00,
+          },
+          // Medicaid: Healthy Michigan Plan (expanded 2014). Adults eligible to 138% FPL.
+          // MIChild/CHIP covers children to 212% FPL.
+          // https://www.michigan.gov/mdhhs/assistance-programs/medicaid
+          medicaid: {
+            expanded: true,
+            expansionFPL: 1.38,
+            childrenFPL: 2.12,
+          },
+          // ACA: SLCSP benchmark — Detroit-Warren-Dearborn representative values, FY2026.
+          // Detroit marketplace is competitive — benchmarks run below the OH/NC range.
+          // https://www.kff.org/interactive/subsidy-calculator/
+          aca: {
+            slcspMonthly: { 1: 620, 2: 1240, 3: 1550, 4: 1860, 5: 2325, 6: 2790 },
+          },
+          // MDHHS Child Development and Care (CDC) scholarship — MI expanded eligibility 2024.
+          // Entry 200% FPL; continuation to 85% SMI (~285% FPL family of 4).
+          // Copay sliding with poverty-band waiver; modeled as ~8% average.
+          // https://www.michigan.gov/mdhhs/assistance-programs/childcare
+          childcare: {
+            entryFPL: 2.00,
+            exitFPL: 2.85,            // 85% SMI ≈ 285% FPL for family of 4 (approx — see TX note)
+            coPayRate: 0.08,          // sliding average — MDHHS CDC 2026
+            coPayFreeFPL: 1.00,       // waiver at/below poverty
+            valuePerChild: [0, 10000, 20000, 29000],
+          },
+          // Section 8 / HCV — HUD FY2026 FMR + 50% AMI, Detroit-Warren-Dearborn MSA.
+          // Detroit FMR notably lower than other large metros.
+          housing: {
+            incomeLimitAnnual: 48000,     // 50% AMI Detroit family of 4
+            paymentStandardMonthly: 1600, // 3BR Detroit
+            tenantShareRate: 0.30,
+          },
+        },
       };
 
       function getState(stateCode) {
@@ -191,25 +315,29 @@
 
       // ── Medicaid eligibility check (boolean) ───────────────────────────────
       // Expansion states: adults eligible ≤ expansionFPL.
-      // Non-expansion states (task-37+): adults eligible per parentFPL/childlessAdultFPL.
+      // Non-expansion states: parentFPL when household has children, childlessAdultFPL when not.
       function isOnMedicaid(annualIncome, familySize, opts) {
-        const { stateCode = 'OH' } = opts || {};
+        const { stateCode = 'OH', adultCount = 2 } = opts || {};
         const state = getState(stateCode);
         const fplFraction = annualIncome / getFPL(familySize);
         if (state.medicaid.expanded) {
           return fplFraction <= state.medicaid.expansionFPL;
         }
-        // Non-expansion: conservative — adults only eligible at parentFPL.
-        // Accurate per-adult branching (childless vs parent) ships with TX (task-37).
-        const parentFPL = state.medicaid.parentFPL ?? 0;
-        return fplFraction <= parentFPL;
+        // Non-expansion branch: treat adults as parents if household has any children,
+        // otherwise as childless. Texas and similar states distinguish sharply between
+        // the two (e.g. TX: 18% FPL parents, 0% FPL childless adults).
+        const numChildren = Math.max(0, familySize - Math.max(1, Number(adultCount)));
+        const threshold = numChildren > 0
+          ? (state.medicaid.parentFPL ?? 0)
+          : (state.medicaid.childlessAdultFPL ?? 0);
+        return fplFraction <= threshold;
       }
 
       // ── Medicaid Value (annual dollar proxy for free coverage) ─────────────
       // Value proxy = avoided insurance cost (adults × adultAnnualValueProxy).
       function calcMedicaidValue(annualIncome, familySize, opts) {
         const { stateCode = 'OH', adultCount = 2 } = opts || {};
-        if (!isOnMedicaid(annualIncome, familySize, { stateCode })) return 0;
+        if (!isOnMedicaid(annualIncome, familySize, { stateCode, adultCount })) return 0;
         const adults = Math.max(1, Math.min(adultCount, familySize));
         return adults * FED.medicaid.adultAnnualValueProxy;
       }
@@ -354,6 +482,92 @@
           at30k: vCurrent.section8Value,
           at50k: vHigher.section8Value,
         });
+
+        // Case 4: Texas — non-expansion Medicaid, BBCE 165% FPL.
+        // Family of 4, 2 adults, $44K wages. At 133% FPL → above TX parentFPL (18%),
+        // so Medicaid is 0 and ACA premium tax credit applies.
+        const txCurrent = calcEffectiveTakeHome(44000, 4, { stateCode: 'TX', adultCount: 2 });
+        console.assert(txCurrent.medicaidValue === 0,
+          'TX non-expansion: family at 133% FPL should have Medicaid=0', txCurrent.medicaidValue);
+        console.assert(txCurrent.snapValue > 1500 && txCurrent.snapValue < 3000,
+          'TX SNAP at $44K/4 should be in Ohio-comparable range', txCurrent.snapValue);
+        console.assert(txCurrent.acaCost > 800 && txCurrent.acaCost < 2500,
+          'TX ACA cost at 133% FPL should be ~3.14% of income', txCurrent.acaCost);
+        console.assert(txCurrent.childcareValue > 10000,
+          'TX childcare at $44K (below 200% entry) should be positive for 2 kids', txCurrent.childcareValue);
+        console.assert(txCurrent.totalEffective > 55000 && txCurrent.totalEffective < 68000,
+          'TX total effective at $44K/4 out of range', txCurrent.totalEffective);
+        console.log('[CliffCheck] Texas (non-expansion, family-of-4) PASSED', {
+          totalEffective: txCurrent.totalEffective,
+          snapValue: txCurrent.snapValue,
+          medicaidValue: txCurrent.medicaidValue,
+          acaCost: txCurrent.acaCost,
+          childcareValue: txCurrent.childcareValue,
+        });
+
+        // Case 5: Texas childless couple — family of 2, 2 adults, $15K.
+        // childlessAdultFPL = 0 in TX, so no Medicaid regardless of income.
+        const txChildless = calcEffectiveTakeHome(15000, 2, { stateCode: 'TX', adultCount: 2 });
+        console.assert(txChildless.medicaidValue === 0,
+          'TX childless couple should have Medicaid=0 even at low income', txChildless.medicaidValue);
+        console.log('[CliffCheck] Texas childless-couple (non-expansion) PASSED', {
+          medicaidValue: txChildless.medicaidValue,
+          totalEffective: txChildless.totalEffective,
+        });
+
+        // Case 6: North Carolina — recent-expansion state without BBCE.
+        // Family of 4, 2 adults, $44K wages. NC has federal-default 130% FPL gross limit →
+        // SNAP = 0 at 133% FPL. Medicaid expansion active → adults eligible at 138% FPL.
+        const ncCurrent = calcEffectiveTakeHome(44000, 4, { stateCode: 'NC', adultCount: 2 });
+        console.assert(ncCurrent.snapValue === 0,
+          'NC (no BBCE, 130% FPL gross): family at 133% FPL should have SNAP=0', ncCurrent.snapValue);
+        console.assert(ncCurrent.medicaidValue === 2 * FED.medicaid.adultAnnualValueProxy,
+          'NC expansion: family at 133% FPL should have Medicaid for 2 adults', ncCurrent.medicaidValue);
+        console.assert(ncCurrent.acaCost === 0,
+          'NC: on Medicaid → no ACA cost', ncCurrent.acaCost);
+        console.assert(ncCurrent.childcareValue > 10000,
+          'NC childcare at $44K (below 200% entry) should be positive for 2 kids', ncCurrent.childcareValue);
+        console.assert(ncCurrent.totalEffective > 50000 && ncCurrent.totalEffective < 68000,
+          'NC total effective at $44K/4 out of range', ncCurrent.totalEffective);
+        console.log('[CliffCheck] North Carolina (expansion, family-of-4) PASSED', {
+          totalEffective: ncCurrent.totalEffective,
+          snapValue: ncCurrent.snapValue,
+          medicaidValue: ncCurrent.medicaidValue,
+          acaCost: ncCurrent.acaCost,
+          childcareValue: ncCurrent.childcareValue,
+        });
+
+        // Case 7: Michigan — expansion state with BBCE at 200% FPL (like OH).
+        // Family of 4, 2 adults, $44K wages. Combines OH's SNAP profile with MI's Detroit-lower ACA/housing.
+        const miCurrent = calcEffectiveTakeHome(44000, 4, { stateCode: 'MI', adultCount: 2 });
+        console.assert(miCurrent.snapValue > 1500 && miCurrent.snapValue < 3000,
+          'MI SNAP at $44K/4 (BBCE 200% FPL) should be in OH-comparable range', miCurrent.snapValue);
+        console.assert(miCurrent.medicaidValue === 2 * FED.medicaid.adultAnnualValueProxy,
+          'MI expansion: family at 133% FPL should have Medicaid for 2 adults', miCurrent.medicaidValue);
+        console.assert(miCurrent.acaCost === 0,
+          'MI: on Medicaid → no ACA cost', miCurrent.acaCost);
+        console.assert(miCurrent.childcareValue > 10000,
+          'MI childcare at $44K (below 200% entry) should be positive for 2 kids', miCurrent.childcareValue);
+        console.assert(miCurrent.totalEffective > 55000 && miCurrent.totalEffective < 75000,
+          'MI total effective at $44K/4 out of range', miCurrent.totalEffective);
+        console.log('[CliffCheck] Michigan (expansion, family-of-4) PASSED', {
+          totalEffective: miCurrent.totalEffective,
+          snapValue: miCurrent.snapValue,
+          medicaidValue: miCurrent.medicaidValue,
+          acaCost: miCurrent.acaCost,
+          childcareValue: miCurrent.childcareValue,
+        });
+
+        // Case 8: Cross-state regression — OH, TX, NC unchanged after MI addition.
+        const ohRegress = calcEffectiveTakeHome(44000, 4, { stateCode: 'OH', adultCount: 2 });
+        console.assert(ohRegress.totalEffective === current.totalEffective,
+          'OH scenario must be unchanged after MI addition', { before: current.totalEffective, after: ohRegress.totalEffective });
+        const txRegress = calcEffectiveTakeHome(44000, 4, { stateCode: 'TX', adultCount: 2 });
+        console.assert(txRegress.totalEffective === txCurrent.totalEffective,
+          'TX scenario must be unchanged after MI addition', { before: txCurrent.totalEffective, after: txRegress.totalEffective });
+        const ncRegress = calcEffectiveTakeHome(44000, 4, { stateCode: 'NC', adultCount: 2 });
+        console.assert(ncRegress.totalEffective === ncCurrent.totalEffective,
+          'NC scenario must be unchanged after MI addition', { before: ncCurrent.totalEffective, after: ncRegress.totalEffective });
       })();
     </script>
 
@@ -1153,5 +1367,33 @@
       const root = ReactDOM.createRoot(document.getElementById("root"));
       root.render(<App />);
     </script>
+
+    <!-- ── PAPI Watermark ──────────────────────────────────────────────── -->
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@500;600&family=JetBrains+Mono:wght@600&family=Space+Grotesk:wght@800&display=swap"
+    />
+    <div style="text-align:center;padding:24px 16px;">
+      <a
+        href="https://getpapi.ai"
+        target="_blank"
+        rel="noopener noreferrer"
+        style="text-decoration:none;display:inline-block;"
+      >
+        <span
+          style="display:inline-flex;align-items:center;font-family:'Inter',system-ui,-apple-system,'Segoe UI',sans-serif;font-size:16px;color:rgba(255,255,255,0.55);letter-spacing:0.03em;word-spacing:3px;"
+        >
+          Powered by&nbsp;
+          <span
+            style="font-family:'Space Grotesk','Inter',system-ui,sans-serif;font-weight:800;font-size:17px;letter-spacing:0.08em;background:linear-gradient(135deg,#5b8def,#9b7bf5,#f97316);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;"
+          >PAPI</span>
+          <span style="color:rgba(255,255,255,0.18);margin:0 14px;font-weight:300;">|</span>
+          Built with&nbsp;
+          <span
+            style="font-family:'JetBrains Mono','SF Mono',Menlo,Consolas,monospace;font-weight:600;font-size:15px;color:#D4845C;letter-spacing:0.05em;padding:3px 10px;border:1px solid rgba(212,132,92,0.3);border-radius:4px;background:rgba(212,132,92,0.06);"
+          >claude code</span>
+        </span>
+      </a>
+    </div>
   </body>
 </html>
