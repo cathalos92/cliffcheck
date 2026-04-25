@@ -20,6 +20,7 @@
 | Document | Status | Last Updated | Consumer |
 |----------|--------|--------------|----------|
 | [design/critique-2026-04-24.md](design/critique-2026-04-24.md) | Active | 2026-04-24 | planner, builder |
+| [design/cliffcheck-brief.md](design/cliffcheck-brief.md) | Active | 2026-04-25 | builder, frontend-design skill |
 
 ## Submission
 
