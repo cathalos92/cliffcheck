@@ -33,6 +33,12 @@
 |----------|--------|--------------|----------|
 | [security/audit-findings.md](security/audit-findings.md) | Draft | 2026-04-25 | user, builder |
 
+## Audits
+
+| Document | Status | Last Updated | Consumer |
+|----------|--------|--------------|----------|
+| [audits/papi-audit-c8.md](audits/papi-audit-c8.md) | Draft | 2026-04-25 | user, builder |
+
 ---
 
 ### Status values
