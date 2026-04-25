@@ -190,3 +190,28 @@ Pausing PAPI-mediated planning entirely. Two options surviving:
 - **P2 MEDIUM — "open a fresh window" prompt fires unconditionally on mode switches.** CLAUDE.md tells the agent to suggest a fresh window when switching modes (e.g. building → strategy review). The agent followed the rule even though the current window had just been opened with low context. The rule should be conditional on actual context load (token usage, time-in-window, tasks-built), not a blanket trigger. Suggested refinement: only suggest a fresh window when context is meaningfully high — otherwise the prompt is noise and creates unnecessary session churn.
 
 ---
+
+---
+
+## Post-Cycle 10 Session — 2026-04-25
+
+### Friction Points
+
+- **P2 MEDIUM — DNS cache poisoning during domain cutover wasted ~30 min.** When a domain transitions from registrar parking to GitHub Pages, the old parking IPs (Squarespace's `198.49.23.x` / `198.185.159.x`) get cached by `getaddrinfo` on macOS for hours. `dig` queries against public resolvers showed the new GitHub IPs immediately, but `curl` and browsers used the cached parking IPs and served the parking page. The agent (me) initially diagnosed this as Squarespace BGP hijacking before tracing through `python3 -c "import socket; getaddrinfo(...)"` to spot the cache. Lesson: when a domain "should be working" per public DNS but isn't, check `getaddrinfo` first, not network-layer trickery. Add to a future custom-domain-runbook: always test from a fresh browser session or another network (phone) before assuming infrastructure problems.
+
+- **P2 MEDIUM — `build_execute` creating 4 separate cycle branches in one cycle generated avoidable merge work.** Cycle 10 had 7 tasks across "Core", "Submission", "Security", "Benefits Engine", "Benefit Engine" (note: singular vs plural — two near-duplicate module names) and "task-54" branches. End of cycle = 6 branches + 7 PRs to merge in dependency-aware order. A single cycle branch would have prevented the manual conflict resolution between `feat/cycle-10-benefit-engine` and `feat/cycle-10-benefits-engine` (both modified `calcEffectiveTakeHome`). The auto-`ort` merge happened to work cleanly because the two builds touched different parts of the function, but that was lucky. Either: (a) collapse near-duplicate module names into one canonical "Benefits Engine", or (b) add a build_execute flag for "use existing cycle branch" when the planner has identified upstream-downstream dependencies between tasks in the same cycle.
+
+### Methodology Signals
+
+- **Batch-shipping 7 tasks across 4 branches in a single chat session worked but cost focus.** Worked: rolling todo list + per-task post-build audit + standalone node validation of calc changes pre-merge kept quality high. Cost: by task-83 (federal EITC), context window was bloated enough that the IIFE assertion rebase became a manual hand-calc exercise rather than the agent running the harness directly. Recommendation: cap a session at 3-4 tasks before starting fresh window. The cycle-10 batch was an exception driven by the r/ohio momentum — not the steady state.
+
+- **The "honest source-tier audit" reframe (task-54) was the most valuable methodology output of the cycle.** Initial expectation was a value-correctness sweep (which constants are wrong?). Actual deliverable: a provenance-quality sweep (which constants cite secondary aggregators vs primary agency rate notices?). The reframe surfaced 3 owner-decision questions that scope Cycle 11 priorities cleanly, instead of producing a list of 23 individual fix tasks. Future research/audit tasks should explicitly ask: is this a value-correctness audit or a provenance-quality audit? They produce different deliverables and feed different cycles.
+
+### Commercial / Roadmap Signals
+
+- **Federal EITC modelling sharpened the canonical Ohio demo cliff from -$5,500 to -$9,800.** This is the more honest number AND the more viral one. The OG image + README hero stat got refreshed to reflect it. In the post-submission "credibility hardening" phase (AD-7), accuracy-first is also share-velocity-first — every accuracy upgrade has the side effect of making the cliff look starker. r/ohio audience is responsive to "even more brutal than I thought" framings.
+
+- **Custom domain (cliffcheck.com) shipped during peak r/ohio momentum.** Old `cathalos92.github.io/cliffcheck` URL 301-redirects, so existing shares don't break. Branded URL adds legitimacy and is easier to type in word-of-mouth contexts. Squarespace registrar choice was fine for the domain, but their default DNS records (parking IPs, HTTPS RR, Domain Connect helper) all required deletion — that work would have been simpler on Cloudflare Registrar, which auto-flatten apex domains and handle the GitHub Pages handoff with one click. Worth flagging if/when the next domain is needed.
+
+- **Source provenance is the next credibility lever.** The task-54 audit confirmed ~60% of state benefit constants currently cite secondary aggregators (KFF, snapscreener, healthinsurance.org). For an app whose entire value proposition is "the math is real", upgrading to primary agency citations (USDA FNS, healthcare.gov Plan Finder, HUD FMR tables) is the highest-leverage Cycle 11 P1. Already scoped in the audit.
+
