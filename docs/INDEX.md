@@ -1,4 +1,5 @@
 # CliffCheck — Document Index
+> Last reviewed: task-68 — 25-04-2026
 
 > Maintained by the builder. Check this index before creating new docs, and update it when creating or archiving docs.
 
