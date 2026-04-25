@@ -100,6 +100,19 @@
           // Represents the marketplace premium cost a family avoids by having Medicaid.
           adultAnnualValueProxy: 2250, // $/adult/year
         },
+        // Federal Earned Income Tax Credit — Tax Year 2025 (filed in 2026).
+        // Source: IRS Rev. Proc. 2024-40 (annual inflation adjustments).
+        // https://www.irs.gov/credits-deductions/individuals/earned-income-tax-credit/eitc-tables
+        // Retrieved 2026-04-25.
+        // Three-region piecewise: phase-in (linear), plateau (flat at maxCredit), phase-out (linear).
+        // Phase-out start is higher for MFJ filers (married-filing-jointly) than single by a fixed delta.
+        // Keys = number of qualifying children (0, 1, 2, 3+ → clamp at 3).
+        eitc: {
+          0: { phaseInRate: 0.0765, earnedAmt: 8490,  maxCredit:  649, phaseOutStartSingle: 10620, phaseOutStartMFJ: 17730, phaseOutRate: 0.0765 },
+          1: { phaseInRate: 0.34,   earnedAmt: 12730, maxCredit: 4328, phaseOutStartSingle: 23350, phaseOutStartMFJ: 30470, phaseOutRate: 0.1598 },
+          2: { phaseInRate: 0.40,   earnedAmt: 17880, maxCredit: 7152, phaseOutStartSingle: 23350, phaseOutStartMFJ: 30470, phaseOutRate: 0.2106 },
+          3: { phaseInRate: 0.45,   earnedAmt: 17880, maxCredit: 8046, phaseOutStartSingle: 23350, phaseOutStartMFJ: 30470, phaseOutRate: 0.2106 },
+        },
       };
 
       function getFPL(familySize) {
@@ -432,6 +445,34 @@
         return Math.max(0, Math.round((h.paymentStandardMonthly - tenantShare) * 12));
       }
 
+      // ── Federal EITC ───────────────────────────────────────────────────────
+      // Three-region piecewise: phase-in (linear up to maxCredit), plateau (flat),
+      // phase-out (linear down to zero). Uses earned income for phase-in; phase-out
+      // uses max(earned, AGI) per IRS — for our wage-only model, earned == AGI.
+      // numChildren derived from familySize - adultCount, clamped to 0–3+.
+      // Filing status derived from adultCount: 2 = MFJ, 1 = single (head-of-household
+      // EITC parameters match single, so we collapse them).
+      function calcFederalEITC(annualIncome, familySize, opts) {
+        const { adultCount = 2 } = opts || {};
+        const numChildren = Math.max(0, Math.min(3, familySize - adultCount));
+        const isMFJ = adultCount >= 2;
+        const p = FED.eitc[numChildren];
+        if (!p || annualIncome <= 0) return 0;
+
+        // Phase-in: linear from $0 up to earnedAmt.
+        if (annualIncome <= p.earnedAmt) {
+          return Math.round(annualIncome * p.phaseInRate);
+        }
+        // Phase-out: starts at phaseOutStart{Single|MFJ}, ends when credit hits zero.
+        const phaseOutStart = isMFJ ? p.phaseOutStartMFJ : p.phaseOutStartSingle;
+        if (annualIncome > phaseOutStart) {
+          const reduction = (annualIncome - phaseOutStart) * p.phaseOutRate;
+          return Math.max(0, Math.round(p.maxCredit - reduction));
+        }
+        // Plateau: flat at max credit between earnedAmt and phaseOutStart.
+        return p.maxCredit;
+      }
+
       // ── Effective Take-Home ────────────────────────────────────────────────
       // Returns breakdown + totalEffective for any income across all programs.
       // opts: { stateCode, pfccEnrolled, hasVoucher, adultCount }
@@ -450,13 +491,14 @@
         const acaCost        = onMedicaid ? 0 : calcACAPremium(annualIncome, familySize, calcOpts);
         const section8Value  = calcSection8Value(annualIncome, familySize, calcOpts);
         const childcareValue = calcChildcareSubsidy(annualIncome, familySize, calcOpts);
+        const eitcValue      = calcFederalEITC(annualIncome, familySize, calcOpts);
 
         const totalEffective = Math.round(
-          annualIncome + snapValue + medicaidValue + section8Value + childcareValue - acaCost
+          annualIncome + snapValue + medicaidValue + section8Value + childcareValue + eitcValue - acaCost
         );
 
         return { grossWages: annualIncome, snapValue, medicaidValue, acaCost,
-                 section8Value, childcareValue, totalEffective };
+                 section8Value, childcareValue, eitcValue, totalEffective };
       }
 
       // ── Cliff Chart Data ───────────────────────────────────────────────────
@@ -481,15 +523,20 @@
         const offered  = calcEffectiveTakeHome(70000, 4, { adultCount: 2 });
         const netDiff  = offered.totalEffective - current.totalEffective;
 
-        // currentEffective ~$70,604 — wages + SNAP($2,184) + Medicaid($4,500) + PFCC($19,920)
-        console.assert(current.totalEffective >= 68000 && current.totalEffective <= 73000,
+        // currentEffective ~$74,907 — wages + SNAP($2,184) + Medicaid($4,500) + PFCC($19,920) + EITC($4,303)
+        // (with task-83 federal EITC modelling — TY2025 IRS Rev. Proc. 2024-40)
+        console.assert(current.totalEffective >= 72000 && current.totalEffective <= 78000,
           'Demo current effective out of range', current.totalEffective);
 
-        // netDiff ~-$5,536 — the $26K raise leaves the household $5.5K worse off
-        console.assert(netDiff >= -8000 && netDiff <= -3000,
+        // netDiff ~-$9,839 — the $26K raise leaves the household ~$10K worse off (EITC also phases out)
+        console.assert(netDiff >= -12000 && netDiff <= -6000,
           'Demo netDiff out of range', netDiff);
 
-        // safeExit ~$79,000 — first income where effective exceeds current + $2K
+        // EITC at $44k for 2-child MFJ family should be in phase-out (max $7,152 plateau, falling)
+        console.assert(current.eitcValue > 3000 && current.eitcValue < 6000,
+          'Demo EITC at $44K MFJ 2-child should be mid-phase-out', current.eitcValue);
+
+        // safeExit pushed higher because EITC adds to current's denominator while offered's EITC is 0
         let safeExit = null;
         for (let i = 70000; i <= 120000; i += 1000) {
           if (calcEffectiveTakeHome(i, 4, { adultCount: 2 }).totalEffective > current.totalEffective + 2000) {
@@ -497,7 +544,7 @@
             break;
           }
         }
-        console.assert(safeExit >= 78000 && safeExit <= 86000,
+        console.assert(safeExit >= 80000 && safeExit <= 95000,
           'Demo safeExit out of range', safeExit);
 
         console.log('[CliffCheck] Demo (2-adult) PASSED', {
@@ -547,7 +594,7 @@
           'TX ACA cost at 133% FPL should be ~3.14% of income', txCurrent.acaCost);
         console.assert(txCurrent.childcareValue > 10000,
           'TX childcare at $44K (below 200% entry) should be positive for 2 kids', txCurrent.childcareValue);
-        console.assert(txCurrent.totalEffective > 55000 && txCurrent.totalEffective < 68000,
+        console.assert(txCurrent.totalEffective > 58000 && txCurrent.totalEffective < 72000,
           'TX total effective at $44K/4 out of range', txCurrent.totalEffective);
         console.log('[CliffCheck] Texas (non-expansion, family-of-4) PASSED', {
           totalEffective: txCurrent.totalEffective,
@@ -579,7 +626,7 @@
           'NC: on Medicaid → no ACA cost', ncCurrent.acaCost);
         console.assert(ncCurrent.childcareValue > 10000,
           'NC childcare at $44K (below 200% entry) should be positive for 2 kids', ncCurrent.childcareValue);
-        console.assert(ncCurrent.totalEffective > 50000 && ncCurrent.totalEffective < 68000,
+        console.assert(ncCurrent.totalEffective > 53000 && ncCurrent.totalEffective < 72000,
           'NC total effective at $44K/4 out of range', ncCurrent.totalEffective);
         console.log('[CliffCheck] North Carolina (expansion, family-of-4) PASSED', {
           totalEffective: ncCurrent.totalEffective,
@@ -600,7 +647,7 @@
           'MI: on Medicaid → no ACA cost', miCurrent.acaCost);
         console.assert(miCurrent.childcareValue > 10000,
           'MI childcare at $44K (below 200% entry) should be positive for 2 kids', miCurrent.childcareValue);
-        console.assert(miCurrent.totalEffective > 55000 && miCurrent.totalEffective < 75000,
+        console.assert(miCurrent.totalEffective > 58000 && miCurrent.totalEffective < 79000,
           'MI total effective at $44K/4 out of range', miCurrent.totalEffective);
         console.log('[CliffCheck] Michigan (expansion, family-of-4) PASSED', {
           totalEffective: miCurrent.totalEffective,
@@ -620,6 +667,30 @@
         const ncRegress = calcEffectiveTakeHome(44000, 4, { stateCode: 'NC', adultCount: 2 });
         console.assert(ncRegress.totalEffective === ncCurrent.totalEffective,
           'NC scenario must be unchanged after MI addition', { before: ncCurrent.totalEffective, after: ncRegress.totalEffective });
+
+        // Case 9: Federal EITC three-region piecewise — TY2025 IRS Rev. Proc. 2024-40.
+        // Phase-in: 2-child MFJ family at $10K earned should be in linear phase-in (40% rate)
+        const eitcPhaseIn = calcFederalEITC(10000, 4, { adultCount: 2 });
+        console.assert(eitcPhaseIn === 4000,
+          'EITC phase-in: 2-child MFJ at $10K should be $10K × 40% = $4,000', eitcPhaseIn);
+        // Plateau: 2-child MFJ at $25K should hit max credit ($7,152) — $25K is between earnedAmt ($17,880) and MFJ phase-out start ($30,470)
+        const eitcPlateau = calcFederalEITC(25000, 4, { adultCount: 2 });
+        console.assert(eitcPlateau === 7152,
+          'EITC plateau: 2-child MFJ at $25K should be max credit $7,152', eitcPlateau);
+        // Phase-out zero: 2-child MFJ at $65K should be fully phased out (zero ≈ $64,430)
+        const eitcZero = calcFederalEITC(65000, 4, { adultCount: 2 });
+        console.assert(eitcZero === 0,
+          'EITC phase-out: 2-child MFJ at $65K should be 0', eitcZero);
+        // Childless MFJ at $20K should still get a small EITC (max $649, phase-out start MFJ $17,730)
+        const eitcChildless = calcFederalEITC(20000, 2, { adultCount: 2 });
+        console.assert(eitcChildless > 0 && eitcChildless < 700,
+          'EITC childless MFJ at $20K should be small and positive', eitcChildless);
+        console.log('[CliffCheck] Federal EITC (TY2025) PASSED', {
+          phaseIn_2childMFJ_at10k: eitcPhaseIn,
+          plateau_2childMFJ_at25k: eitcPlateau,
+          zero_2childMFJ_at65k: eitcZero,
+          childless_MFJ_at20k: eitcChildless,
+        });
       })();
     </script>
 
