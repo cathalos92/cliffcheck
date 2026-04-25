@@ -125,6 +125,18 @@
           2: { phaseInRate: 0.40,   earnedAmt: 17880, maxCredit: 7152, phaseOutStartSingle: 23350, phaseOutStartMFJ: 30470, phaseOutRate: 0.2106 },
           3: { phaseInRate: 0.45,   earnedAmt: 17880, maxCredit: 8046, phaseOutStartSingle: 23350, phaseOutStartMFJ: 30470, phaseOutRate: 0.2106 },
         },
+        // App-level policy constants — UI thresholds, chart bounds, table sizing.
+        // Not statutory; chosen to match the modelled benefit tables (SNAP/ACA SLCSP
+        // tables size 1–6 cap households at 6; EITC keys cap children at 3).
+        // Promoted from inline magic numbers (C8 audit F4) for single-source-of-truth.
+        policy: {
+          safeExitBuffer: 2000,    // $/yr; demo IIFE safe-exit threshold over current
+          worseThreshold: 500,     // $/yr; symmetric band — cliff if diff < -worseThreshold, better if > +worseThreshold
+          chartMaxIncome: 120000,  // $/yr; cliff chart x-axis upper bound
+          chartIncrement: 1000,    // $/yr; cliff chart sample spacing (yields 121 points)
+          maxChildrenIndex: 3,     // EITC table is keyed 0–3 (3+ all share the 3-child schedule)
+          maxFamilySize: 6,        // SNAP std deduction / max benefit + ACA SLCSP tables sized 1–6
+        },
       };
 
       function getFPL(familySize) {
@@ -323,7 +335,7 @@
         const { stateCode = 'OH', hasVoucher = false } = opts || {};
         const state = getState(stateCode);
         const fpl = getFPL(familySize);
-        const size = Math.min(Math.max(1, familySize), 6);
+        const size = Math.min(Math.max(1, familySize), FED.policy.maxFamilySize);
         const grossMonthly = annualIncome / 12;
 
         // Gross income test (state BBCE limit)
@@ -375,7 +387,7 @@
         const state = getState(stateCode);
         const fpl = getFPL(familySize);
         const fplFraction = annualIncome / fpl;
-        const size = Math.min(Math.max(1, familySize), 6);
+        const size = Math.min(Math.max(1, familySize), FED.policy.maxFamilySize);
         const slcsp = state.aca.slcspMonthly;
         const slcspAnnual = (slcsp[size] || slcsp[6]) * 12;
 
@@ -466,7 +478,7 @@
       // EITC parameters match single, so we collapse them).
       function calcFederalEITC(annualIncome, familySize, opts) {
         const { adultCount = 2 } = opts || {};
-        const numChildren = Math.max(0, Math.min(3, familySize - adultCount));
+        const numChildren = Math.max(0, Math.min(FED.policy.maxChildrenIndex, familySize - adultCount));
         const isMFJ = adultCount >= 2;
         const p = FED.eitc[numChildren];
         if (!p || annualIncome <= 0) return 0;
@@ -524,7 +536,7 @@
       // opts: same as calcEffectiveTakeHome
       function getCliffChartData(familySize, opts) {
         const points = [];
-        for (let income = 0; income <= 120000; income += 1000) {
+        for (let income = 0; income <= FED.policy.chartMaxIncome; income += FED.policy.chartIncrement) {
           points.push({ income, ...calcEffectiveTakeHome(income, familySize, opts) });
         }
         return points;
@@ -556,8 +568,8 @@
 
         // safeExit pushed higher because EITC adds to current's denominator while offered's EITC is 0
         let safeExit = null;
-        for (let i = 70000; i <= 120000; i += 1000) {
-          if (calcEffectiveTakeHome(i, 4, { adultCount: 2 }).totalEffective > current.totalEffective + 2000) {
+        for (let i = 70000; i <= FED.policy.chartMaxIncome; i += FED.policy.chartIncrement) {
+          if (calcEffectiveTakeHome(i, 4, { adultCount: 2 }).totalEffective > current.totalEffective + FED.policy.safeExitBuffer) {
             safeExit = i;
             break;
           }
@@ -796,8 +808,8 @@
                 id={id}
                 type="range"
                 min="0"
-                max="120000"
-                step="1000"
+                max={FED.policy.chartMaxIncome}
+                step={FED.policy.chartIncrement}
                 value={value}
                 onChange={e => onChange(Number(e.target.value))}
                 className="w-full accent-amber-500 cursor-pointer"
@@ -977,8 +989,8 @@
         );
 
         const diff = offered.totalEffective - current.totalEffective;
-        const isWorse  = diff < -500;
-        const isBetter = diff > 500;
+        const isWorse  = diff < -FED.policy.worseThreshold;
+        const isBetter = diff > FED.policy.worseThreshold;
 
         const raiseAmount = Number(offeredIncome) - Number(currentIncome);
 
@@ -1084,8 +1096,8 @@
         );
 
         const diff = offered.totalEffective - current.totalEffective;
-        const isWorse  = diff < -500;
-        const isBetter = diff > 500;
+        const isWorse  = diff < -FED.policy.worseThreshold;
+        const isBetter = diff > FED.policy.worseThreshold;
 
         return (
           <div className="mt-3 bg-stone-100 rounded-xl px-4 py-3 flex items-center justify-between gap-2">
@@ -1136,7 +1148,7 @@
         afterDatasetsDraw(chart, _args, opts) {
           const { ctx, chartArea, scales } = chart;
           (opts.lines || []).forEach(({ x, color, label, dash }) => {
-            if (x < 0 || x > 120000) return;
+            if (x < 0 || x > FED.policy.chartMaxIncome) return;
             const xpx = scales.x.getPixelForValue(x);
             ctx.save();
             ctx.strokeStyle = color;
@@ -1161,9 +1173,9 @@
           });
 
           // Cliff drop annotation — biggest single-step loss
-          if (opts.cliffAnnotation && opts.cliffAnnotation.dy < -500) {
+          if (opts.cliffAnnotation && opts.cliffAnnotation.dy < -FED.policy.worseThreshold) {
             const { midX, bottomY, dropAmt } = opts.cliffAnnotation;
-            if (midX >= 0 && midX <= 120000) {
+            if (midX >= 0 && midX <= FED.policy.chartMaxIncome) {
               const xpx = scales.x.getPixelForValue(midX);
               const ypx = scales.y.getPixelForValue(bottomY);
               const label = '−$' + dropAmt.toLocaleString();
@@ -1309,7 +1321,7 @@
                 x: {
                   type: 'linear',
                   min: 0,
-                  max: 120000,
+                  max: FED.policy.chartMaxIncome,
                   ticks: {
                     stepSize: 20000,
                     callback: v => '$' + (v / 1000) + 'k',
@@ -1340,7 +1352,7 @@
         }, [pts, currentIncome, offeredIncome, safeExit, yMin, cliffAnnotation]);
 
         const diff    = offeredResult.totalEffective - currentResult.totalEffective;
-        const isWorse = diff < -500;
+        const isWorse = diff < -FED.policy.worseThreshold;
 
         const chartBreakdown = isWorse ? [
           { label: 'SNAP',      delta: Math.round((offeredResult.snapValue      - currentResult.snapValue)      / 12) },
@@ -1445,7 +1457,7 @@
           return { current, offered, safeExit, benefitValue, diff };
         }, [stateCode, familySize, currentIncome, offeredIncome, adultCount, hasSection8Voucher, pfccEnrolled, employerHealthInsurance]);
 
-        const isWorse = diff < -500;
+        const isWorse = diff < -FED.policy.worseThreshold;
         const line1 = `Currently earning ${fmtDollars(Number(currentIncome))}/yr with ${fmtDollars(Math.abs(benefitValue))} in annual benefit value — ${fmtDollars(current.totalEffective)} total effective`;
         const line2 = isWorse
           ? `The ${fmtDollars(Number(offeredIncome))} offer would give ${fmtDollars(offered.totalEffective)} total effective — that's ${fmtDollars(Math.abs(diff))} less than today`
