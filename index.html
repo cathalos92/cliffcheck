@@ -365,7 +365,7 @@
         if (netMonthly > netLimit) return 0;
 
         const maxBenefit = FED.snap.maxMonthlyBenefit[size];
-        const monthly = Math.max(0, maxBenefit - Math.round(netMonthly * FED.snap.benefitReductionRate));
+        const monthly = Math.max(0, maxBenefit - netMonthly * FED.snap.benefitReductionRate);
         return monthly * 12;
       }
 
@@ -399,7 +399,7 @@
         // Above 400% FPL → no PTC; pay full premium (hard cliff). At exactly 400% PTC still applies.
         if (fplFraction > FED.aca.cliffFPL) return slcspAnnual;
 
-        const contribution = Math.round(annualIncome * _acaApplicablePct(fplFraction));
+        const contribution = annualIncome * _acaApplicablePct(fplFraction);
         return Math.min(contribution, slcspAnnual);
       }
 
@@ -464,7 +464,7 @@
 
         const coPay = fplFraction <= cc.coPayFreeFPL
           ? 0
-          : Math.round(annualIncome * cc.coPayRate);
+          : annualIncome * cc.coPayRate;
         return Math.max(0, grossValue - coPay);
       }
 
@@ -479,7 +479,7 @@
         if (!hasVoucher) return 0;
         if (annualIncome > h.incomeLimitAnnual) return 0;
         const tenantShare = (annualIncome / 12) * FED.housing.tenantShareRate;
-        return Math.max(0, Math.round((h.paymentStandardMonthly - tenantShare) * 12));
+        return Math.max(0, (h.paymentStandardMonthly - tenantShare) * 12);
       }
 
       // ── Federal EITC ───────────────────────────────────────────────────────
@@ -516,6 +516,9 @@
       // employerHealthInsurance=true short-circuits ACA premium math entirely —
       // the user's coverage comes from their employer plan, so marketplace PTC and
       // out-of-pocket marketplace premium contributions don't apply to take-home.
+      // Rounding policy (C8 audit F7): subcomponent calcs return unrounded floats;
+      // round once here at the totalEffective boundary. UI consumers (tooltips,
+      // breakdowns) re-round per-line via Math.round / fmtDollars.
       function calcEffectiveTakeHome(annualIncome, familySize, opts) {
         const {
           stateCode = 'OH',
