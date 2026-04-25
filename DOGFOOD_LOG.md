@@ -168,3 +168,25 @@ Pausing PAPI-mediated planning entirely. Two options surviving:
 - **Cycle 1 velocity (3 tasks, ~2–3 hours) reasonable for a bootstrap cycle** focused on data accuracy. Phase 2 (input form + cliff chart UI) is the first judge-visible output.
 
 ---
+
+## Post-Cycle 9 Session — 2026-04-25
+
+### Friction Points
+
+- **P1 HIGH — `orient` reports Strategy Review cadence incorrectly.** After Cycle 9 release, `orient` returned "⚠️ GATE — 5 cycles since last Strategy Review. `plan` is blocked until `strategy_review` runs (or `force: true`)" and "Next action: Strategy Review overdue (5 cycles)". A strategy review was completed in Cycle 4. Cycle 9 just released — that's the 5-cycle mark, so a review is *due*, not *overdue by 5 cycles*. The phrasing implies five cycles have elapsed with no review at all, which is false and prompted a misleading summary to the user. **Suggested fix:** Distinguish "cycles since last review" from "cycles overdue" — they are not the same number. If cadence is "every 5 cycles" and last review was C4, then at C9-complete the count is "due (0 overdue)", at C10 it's "1 overdue", etc.
+
+- **P1 HIGH — `orient` alerts surface stale issue text from old cycles without re-checking current code.** The C9 orient report listed as a P1 alert: *"P1: The product brief Keisha demo scenario uses wages=$54K but at that income all Ohio benefit thresholds…"* — but "Keisha" was removed from the codebase cycles ago (memory note `feedback_persona_naming.md` flagged the name in C2/C3 and the demo persona was renamed). The alert is replaying a C1/task-2 discovered_issue verbatim, never reconciled against the current state of the app. **Suggested fix:** Discovered issues should either (a) auto-close when their referenced artefact no longer exists in the codebase, or (b) require explicit acknowledgement at release-time so they don't accumulate as false-positive noise across cycles. Right now the alerts list grows monotonically and erodes trust in the orient summary.
+
+- **P2 MEDIUM — Cloudflare Workers URL P0 alert is outdated.** Orient still flags `cliffcheck.cliffcheck.workers.dev` is gated by Cloudflare Access login as a P0. We pivoted to GitHub Pages (`https://cathalos92.github.io/cliffcheck/`) for the public demo and effectively scrapped the Cloudflare Workers path. The P0 should have been resolved or superseded when that decision was made. Same root cause as the persona alert — discovered issues don't track resolution state.
+
+### Methodology Signals
+
+- The dogfood log is itself a useful corrective layer for `orient` drift. When orient says something that contradicts memory or recent decisions, capture it here so the next strategy review can audit how often it happens.
+
+### Commercial / Roadmap Signals
+
+- An "orient says X but reality is Y" pattern is exactly the kind of agent-visible regression that erodes user trust in PAPI. Worth tracking discovered-issue staleness as an explicit health metric (e.g. % of P0/P1 alerts older than 2 cycles with no status change).
+
+- **P2 MEDIUM — "open a fresh window" prompt fires unconditionally on mode switches.** CLAUDE.md tells the agent to suggest a fresh window when switching modes (e.g. building → strategy review). The agent followed the rule even though the current window had just been opened with low context. The rule should be conditional on actual context load (token usage, time-in-window, tasks-built), not a blanket trigger. Suggested refinement: only suggest a fresh window when context is meaningfully high — otherwise the prompt is noise and creates unnecessary session churn.
+
+---
