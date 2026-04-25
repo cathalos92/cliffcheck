@@ -60,6 +60,16 @@ Both paths leverage the same advantage: **CliffCheck works on-device, with no ac
 
 All dependencies loaded from CDN (`unpkg`, `jsdelivr`, `esm.sh`). Open `index.html` in any modern browser to run locally — no `npm install`, no setup. The repo also contains a `wrangler.toml` for the Cloudflare Workers track-stack deploy (the public Worker URL is access-gated; GitHub Pages is the primary judging URL).
 
+## Tech architecture
+
+Three non-obvious primitives behind the single `index.html`:
+
+**FED + STATES rule engine.** Federal-uniform benefit rules live in a shared `FED` namespace (SNAP tables, ACA premium caps, FPL). State-specific overrides live in `STATES.XX` object literals. Adding a new state is one object + one validation case — no engine changes. Four states (OH, TX, NC, MI) prove the pattern.
+
+**In-page IIFE validation harness** (`index.html` lines 436–581). Eight demo scenarios assert the cliff math on every page load — the full regression net runs in the browser with no test runner, no CI, no npm. If a calc change breaks a known scenario, it fails immediately in the console before a judge sees it.
+
+**Local-first privacy.** Profile data persists to a single namespaced TinyBase store (`cliffcheck-v1`). The security audit at [`docs/security/audit-findings.md`](docs/security/audit-findings.md) verifies no third-party data calls — network tab is clean on every scenario run.
+
 ## Run locally
 
 ```bash
