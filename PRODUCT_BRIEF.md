@@ -90,7 +90,7 @@ A phone-first web app that lets users input their family situation and current b
 - [x] Safe exit hero number above the fold
 - [x] Deployed and accessible via URL
 - [x] Phone-first responsive design
-- [ ] Demo mode (pre-loaded scenario)
+- [x] Demo mode (pre-loaded scenario)
 - [ ] Texas state calculations
 - [ ] Visual polish pass
 - [ ] Submission package
