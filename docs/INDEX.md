@@ -26,6 +26,7 @@
 | Document | Status | Last Updated | Consumer |
 |----------|--------|--------------|----------|
 | [submission/rules-compliance.md](submission/rules-compliance.md) | Draft | 2026-04-25 | user, builder |
+| [submission/judging-scorecard.md](submission/judging-scorecard.md) | Draft | 2026-04-25 | user, builder |
 
 ## Security
 
