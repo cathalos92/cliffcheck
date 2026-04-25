@@ -403,6 +403,14 @@
         return Math.min(contribution, slcspAnnual);
       }
 
+      // ── Household-shape helper ─────────────────────────────────────────────
+      // numChildren = familySize - adultCount, with a defensive Math.max(1, …)
+      // on adultCount to absorb 0/null/string inputs from external callers
+      // (presets, future case-management UI). Never returns a negative count.
+      function numChildren(familySize, adultCount) {
+        return Math.max(0, familySize - Math.max(1, Number(adultCount)));
+      }
+
       // ── Medicaid eligibility check (boolean) ───────────────────────────────
       // Expansion states: adults eligible ≤ expansionFPL.
       // Non-expansion states: parentFPL when household has children, childlessAdultFPL when not.
@@ -416,8 +424,8 @@
         // Non-expansion branch: treat adults as parents if household has any children,
         // otherwise as childless. Texas and similar states distinguish sharply between
         // the two (e.g. TX: 18% FPL parents, 0% FPL childless adults).
-        const numChildren = Math.max(0, familySize - Math.max(1, Number(adultCount)));
-        const threshold = numChildren > 0
+        const kids = numChildren(familySize, adultCount);
+        const threshold = kids > 0
           ? (state.medicaid.parentFPL ?? 0)
           : (state.medicaid.childlessAdultFPL ?? 0);
         return fplFraction <= threshold;
@@ -443,8 +451,8 @@
         const cc = state.childcare;
         const fpl = getFPL(familySize);
         const fplFraction = annualIncome / fpl;
-        const numChildren = Math.max(0, familySize - adultCount);
-        const idx = Math.min(numChildren, cc.valuePerChild.length - 1);
+        const kids = numChildren(familySize, adultCount);
+        const idx = Math.min(kids, cc.valuePerChild.length - 1);
         const grossValue = cc.valuePerChild[idx];
 
         if (grossValue === 0) return 0;
@@ -483,9 +491,9 @@
       // EITC parameters match single, so we collapse them).
       function calcFederalEITC(annualIncome, familySize, opts) {
         const { adultCount = 2 } = opts || {};
-        const numChildren = Math.max(0, Math.min(FED.policy.maxChildrenIndex, familySize - adultCount));
+        const kids = Math.min(FED.policy.maxChildrenIndex, numChildren(familySize, adultCount));
         const isMFJ = adultCount >= 2;
-        const p = FED.eitc[numChildren];
+        const p = FED.eitc[kids];
         if (!p || annualIncome <= 0) return 0;
 
         // Phase-in: linear from $0 up to earnedAmt.
