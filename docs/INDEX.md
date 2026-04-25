@@ -21,6 +21,12 @@
 |----------|--------|--------------|----------|
 | [design/critique-2026-04-24.md](design/critique-2026-04-24.md) | Active | 2026-04-24 | planner, builder |
 
+## Submission
+
+| Document | Status | Last Updated | Consumer |
+|----------|--------|--------------|----------|
+| [submission/rules-compliance.md](submission/rules-compliance.md) | Draft | 2026-04-25 | user, builder |
+
 ---
 
 ### Status values
