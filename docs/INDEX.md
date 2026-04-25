@@ -27,6 +27,12 @@
 |----------|--------|--------------|----------|
 | [submission/rules-compliance.md](submission/rules-compliance.md) | Draft | 2026-04-25 | user, builder |
 
+## Security
+
+| Document | Status | Last Updated | Consumer |
+|----------|--------|--------------|----------|
+| [security/audit-findings.md](security/audit-findings.md) | Draft | 2026-04-25 | user, builder |
+
 ---
 
 ### Status values
