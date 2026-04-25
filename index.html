@@ -884,10 +884,13 @@
                 onChange={e => store.setCell('profile', 'current', 'familySize', Number(e.target.value))}
                 className="w-full h-12 px-3 bg-white border border-stone-200 rounded-lg text-stone-900 text-base focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-amber-400"
               >
-                {[1,2,3,4,5,6,7,8].map(n => (
+                {[1,2,3,4,5,6].map(n => (
                   <option key={n} value={n}>{n} {n === 1 ? 'person' : 'people'}</option>
                 ))}
               </select>
+              <p className="text-xs text-stone-500 mt-1.5">
+                Households of 7+ aren't yet supported — coming soon.
+              </p>
             </div>
 
             {/* Adults in household */}
@@ -1600,7 +1603,14 @@
         useEffect(() => {
           const persister = createLocalPersister(store, 'cliffcheck-v1');
           persister.startAutoLoad({ profile: { current: DEFAULTS } })
-            .then(() => persister.startAutoSave());
+            .then(() => {
+              // Clamp legacy persisted familySize > 6 (UI now caps at 6 — task-66)
+              const fs = Number(store.getCell('profile', 'current', 'familySize'));
+              if (fs > FED.policy.maxFamilySize) {
+                store.setCell('profile', 'current', 'familySize', FED.policy.maxFamilySize);
+              }
+              return persister.startAutoSave();
+            });
           return () => persister.destroy();
         }, []);
 
