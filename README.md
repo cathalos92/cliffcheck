@@ -40,6 +40,16 @@ All calculation runs locally in your browser. **No financial data leaves your de
 
 Open the app, click **"Try the demo"**, watch the chart.
 
+## Why this scales
+
+CliffCheck solves a problem that touches 50+ million Americans — but the revenue paths require no mass-consumer scale to be commercially viable.
+
+**Employer benefits-counselling tool.** HR teams and benefits brokers routinely handle raise and promotion conversations where cliff math is invisible but decisive. A worker turning down a $20k offer costs a company far more in recruitment. CliffCheck gives HR an evidence-based tool to structure compensation conversations — showing the cliff, the safe-exit number, and the negotiation path. The wedge: mid-sized benefits-broker firms (100+ employer clients) who already advise on benefits utilization. No cold-start problem — they already have the relationships and the pain.
+
+**Social worker / benefits-counselor pro license.** Benefits counselors and social workers run dozens of these conversations monthly, currently with spreadsheets or nothing. A pro tier with multi-client saves, caseload history, and exportable reports addresses their exact workflow. BenefitsCheckUp Pro charges $25–80/mo per seat for less. The local-first architecture is a trust differentiator here too — case managers cannot upload client financial data to cloud services under many agency data-handling policies.
+
+Both paths leverage the same advantage: **CliffCheck works on-device, with no accounts, no uploads, no vendor lock-in.** That's not a feature for consumer apps — it's a compliance requirement for institutional ones.
+
 ## Stack — VibesOS
 
 - **Single `index.html`** — no build step, no bundler, no `package.json`
