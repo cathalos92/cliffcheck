@@ -40,6 +40,16 @@ All calculation runs locally in your browser. **No financial data leaves your de
 
 Open the app, click **"Try the demo"**, watch the chart.
 
+## Why this scales
+
+CliffCheck solves a problem that touches 50+ million Americans — but the revenue paths require no mass-consumer scale to be commercially viable.
+
+**Employer benefits-counselling tool.** HR teams and benefits brokers routinely handle raise and promotion conversations where cliff math is invisible but decisive. A worker turning down a $20k offer costs a company far more in recruitment. CliffCheck gives HR an evidence-based tool to structure compensation conversations — showing the cliff, the safe-exit number, and the negotiation path. The wedge: mid-sized benefits-broker firms (100+ employer clients) who already advise on benefits utilization. No cold-start problem — they already have the relationships and the pain.
+
+**Social worker / benefits-counselor pro license.** Benefits counselors and social workers run dozens of these conversations monthly, currently with spreadsheets or nothing. A pro tier with multi-client saves, caseload history, and exportable reports addresses their exact workflow. BenefitsCheckUp Pro charges $25–80/mo per seat for less. The local-first architecture is a trust differentiator here too — case managers cannot upload client financial data to cloud services under many agency data-handling policies.
+
+Both paths leverage the same advantage: **CliffCheck works on-device, with no accounts, no uploads, no vendor lock-in.** That's not a feature for consumer apps — it's a compliance requirement for institutional ones.
+
 ## Stack — VibesOS
 
 - **Single `index.html`** — no build step, no bundler, no `package.json`
@@ -49,6 +59,16 @@ Open the app, click **"Try the demo"**, watch the chart.
 - **Chart.js** — cliff visualisation, $0–$120k at $1k increments
 
 All dependencies loaded from CDN (`unpkg`, `jsdelivr`, `esm.sh`). Open `index.html` in any modern browser to run locally — no `npm install`, no setup. The repo also contains a `wrangler.toml` for the Cloudflare Workers track-stack deploy (the public Worker URL is access-gated; GitHub Pages is the primary judging URL).
+
+## Tech architecture
+
+Three non-obvious primitives behind the single `index.html`:
+
+**FED + STATES rule engine.** Federal-uniform benefit rules live in a shared `FED` namespace (SNAP tables, ACA premium caps, FPL). State-specific overrides live in `STATES.XX` object literals. Adding a new state is one object + one validation case — no engine changes. Four states (OH, TX, NC, MI) prove the pattern.
+
+**In-page IIFE validation harness** (`index.html` lines 436–581). Eight demo scenarios assert the cliff math on every page load — the full regression net runs in the browser with no test runner, no CI, no npm. If a calc change breaks a known scenario, it fails immediately in the console before a judge sees it.
+
+**Local-first privacy.** Profile data persists to a single namespaced TinyBase store (`cliffcheck-v1`). The security audit at [`docs/security/audit-findings.md`](docs/security/audit-findings.md) verifies no third-party data calls — network tab is clean on every scenario run.
 
 ## Run locally
 
