@@ -656,7 +656,7 @@
       function IncomeSlider({ id, value, onChange }) {
         return (
           <div>
-            <p className="text-2xl font-extrabold text-stone-900 leading-none mb-2"
+            <p className="text-xl font-semibold text-stone-900 leading-none mb-2"
                style={{fontVariantNumeric:'tabular-nums'}}>
               {fmtDollars(value)}/yr
             </p>
@@ -863,8 +863,8 @@
                 <p className="text-xs font-medium text-stone-400 uppercase tracking-wide leading-none">
                   Take-home today
                 </p>
-                <p className="text-3xl font-extrabold text-stone-900 mt-2 leading-none"
-                   style={{fontVariantNumeric: 'tabular-nums'}}>
+                <p className="font-extrabold text-stone-900 mt-2 leading-none"
+                   style={{fontVariantNumeric: 'tabular-nums', fontSize: 'clamp(2.5rem, 5vw, 3.5rem)'}}>
                   {fmtDollars(current.totalEffective)}
                 </p>
                 <p className="text-xs text-stone-400 mt-1.5">/yr including benefits</p>
@@ -873,10 +873,10 @@
                 <p className="text-xs font-medium text-stone-400 uppercase tracking-wide leading-none">
                   After the offer
                 </p>
-                <p className={`text-3xl font-extrabold mt-2 leading-none ${
+                <p className={`font-extrabold mt-2 leading-none ${
                     isWorse ? 'text-red-600' : isBetter ? 'text-green-700' : 'text-stone-900'
                   }`}
-                   style={{fontVariantNumeric: 'tabular-nums'}}>
+                   style={{fontVariantNumeric: 'tabular-nums', fontSize: 'clamp(2.5rem, 5vw, 3.5rem)'}}>
                   {fmtDollars(offered.totalEffective)}
                 </p>
                 <p className={`text-sm font-semibold mt-1.5 ${
@@ -1312,15 +1312,15 @@
         }
 
         return (
-          <div className="mt-4 bg-amber-50 border border-amber-200 rounded-2xl p-5">
-            <div className="flex items-start justify-between gap-3 mb-4">
+          <div className="mt-4 bg-orange-50 border border-amber-200 rounded-2xl p-5">
+            <div className="flex flex-col gap-3 mb-4">
               <div>
                 <h2 className="text-base font-semibold text-stone-800">Manager brief</h2>
                 <p className="text-xs text-stone-500 mt-0.5">Copy and paste into a message to your manager or HR</p>
               </div>
               <button
                 onClick={handleCopy}
-                className="shrink-0 text-xs font-semibold px-3 py-2 rounded-lg bg-amber-400 text-stone-900 hover:bg-amber-500 active:bg-amber-600 transition-colors"
+                className="w-full h-12 text-sm font-bold rounded-lg bg-amber-500 text-stone-900 hover:bg-amber-600 active:bg-amber-700 transition-colors"
               >
                 {copied ? '✓ Copied' : 'Copy text'}
               </button>
