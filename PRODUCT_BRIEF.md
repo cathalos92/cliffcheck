@@ -50,7 +50,7 @@ A phone-first web app that lets users input their family situation and current b
 - **Accuracy fixes**: employer-coverage toggle (task-74), combined-household income labels (task-75), SNAP net-income gating (task-79), per-state childcare label (task-53), unsupported-state guard (task-51), full benefit-calc audit with primary sources (task-54).
 - **Hygiene**: C8 codebase audit findings (task-62 through task-67), doc freshness headers (task-68).
 - **Security**: SRI hashes on CDN scripts (task-69), CSP meta tag (task-70).
-- **Infrastructure**: custom domain (task-77), retire Cloudflare Workers references (task-78), tip jar / contact / suggestion footer (task-76).
+- **Infrastructure**: custom domain (task-77), tip jar / contact / suggestion footer (task-76).
 - **Future expansion**: state EITC (task-41), data-refresh checklist (task-40), county-level SLCSP overrides (post-C10).
 
 ## Judging Criteria (1-5 each — VibeJam 2026)

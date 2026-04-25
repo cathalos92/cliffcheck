@@ -58,7 +58,7 @@ Both paths leverage the same advantage: **CliffCheck works on-device, with no ac
 - **Tailwind CSS** (Play CDN) — phone-first styling
 - **Chart.js** — cliff visualisation, $0–$120k at $1k increments
 
-All dependencies loaded from CDN (`unpkg`, `jsdelivr`, `esm.sh`). Open `index.html` in any modern browser to run locally — no `npm install`, no setup. The repo also contains a `wrangler.toml` for the Cloudflare Workers track-stack deploy (the public Worker URL is access-gated; GitHub Pages is the primary judging URL).
+All dependencies loaded from CDN (`unpkg`, `jsdelivr`, `esm.sh`). Open `index.html` in any modern browser to run locally — no `npm install`, no setup. Production hosting is GitHub Pages, serving the same single `index.html` byte-for-byte.
 
 ## Tech architecture
 
