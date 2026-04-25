@@ -425,9 +425,11 @@
 
       // ── Medicaid Value (annual dollar proxy for free coverage) ─────────────
       // Value proxy = avoided insurance cost (adults × adultAnnualValueProxy).
+      // Caller (calcEffectiveTakeHome) gates on isOnMedicaid before invoking;
+      // do not re-check here — that double-call adds 121 redundant lookups
+      // per chart redraw (C8 audit F2).
       function calcMedicaidValue(annualIncome, familySize, opts) {
-        const { stateCode = 'OH', adultCount = 2 } = opts || {};
-        if (!isOnMedicaid(annualIncome, familySize, { stateCode, adultCount })) return 0;
+        const { adultCount = 2 } = opts || {};
         const adults = Math.max(1, Math.min(adultCount, familySize));
         return adults * FED.medicaid.adultAnnualValueProxy;
       }
