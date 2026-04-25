@@ -33,31 +33,27 @@ This audit covers (a)–(d) only. Scoring optimisation is task-57's job.
 
 ## Decision needed: URL strategy
 
-Three options for resolving gates 1 + 7:
+## URL strategy — DECIDED
 
-- **A) Submit both URLs in README** — Cloudflare Workers (track-required) + GitHub Pages (judge-accessible mirror). Belt and braces. **Recommended.**
-- **B) Submit only GitHub Pages.** Risk: VibesOS track may strictly require Cloudflare Workers — could fail track compliance.
-- **C) Disable Cloudflare Access on the Worker, submit only the Workers URL.** Cleanest single canonical URL. Requires a dashboard click in Cloudflare Zero Trust → Access → Applications.
+**Decision (owner, 2026-04-25):** Submit `https://cathalos92.github.io/cliffcheck/` (GitHub Pages) as the primary judge URL. Reference the Cloudflare Workers deploy + `wrangler.toml` in the README as VibesOS track-stack evidence. Do not require judges to authenticate.
 
-**Recommendation: A** (zero risk, two minutes to write into the README).
+**Why this works:** VibesOS track spirit is the stack (single HTML + React + TinyBase + Tailwind + CDN-only, no build step) — GitHub Pages serves the identical artifact byte-for-byte. Workers deploy still exists for track evidence.
+
+**Residual risk:** If track rules literally require "deployed on Cloudflare Workers" as a binary gate (canonical rules URL unavailable), GitHub Pages alone may not satisfy. Mitigated by referencing the Workers config in README.
+
+Gates 1 and 7 are now resolved → ✅ effective PASS.
 
 ---
 
-## Recommended fix order
+## Remaining fix order
 
 1. **Add `LICENSE`** (MIT). ~5 min.
-2. **Add `README.md`** — tagline, BOTH URLs, repo URL, demo scenario, local-run, AI-assistance disclosure, licence reference. ~20 min.
-3. **(Optional) Disable Cloudflare Access on the Worker** if you want a single canonical URL. ~5 min in dashboard.
+2. **Add `README.md`** — tagline, GitHub Pages URL (primary), Workers URL + wrangler reference (track evidence), repo URL, demo scenario, local-run, AI-assistance disclosure (Claude Code + PAPI), licence reference. ~20 min.
 
-After these three, all compliance gates are PASS or PARTIAL-acceptable. Remaining build effort goes to task-57 — score-lifting work against the 5 judging criteria.
+After these two, **all compliance gates close**. Remaining build effort goes to task-57 — score-lifting work against the 5 judging criteria.
 
 ## Out-of-scope items discovered
 
 - Code quality findings: defer to task-55 (PAPI codebase audit)
-- Security findings (XSS, secrets, SRI/CSP): defer to task-58 (security audit)
+- Security findings (XSS, secrets, SRI/CSP): see task-58 — zero P0s
 - Judging-criteria scoring + score-lift levers: **task-57** — this is where the real submission-quality work lives
-
-## Owner decision needed
-
-1. **URL strategy:** A, B, or C above?
-2. **Fix order:** Want me to add LICENSE + README now (option A baked in), or wait?
