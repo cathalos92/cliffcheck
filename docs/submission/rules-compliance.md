@@ -1,5 +1,5 @@
 # VibeJam 2026 — Rules Compliance Gap Analysis
-> Last reviewed: task-56 — 25-04-2026
+> Last reviewed: task-78 — 25-04-2026
 
 **Status:** Findings draft — pending owner triage. **DO NOT** auto-create follow-up fix tasks. Human decides which become P0 fixes.
 
@@ -19,36 +19,32 @@ This audit covers (a)–(d) only. Scoring optimisation is task-57's job.
 
 | # | Gate | Status | Evidence | Fix needed |
 |---|---|---|---|---|
-| 1 | **Reachable by judges** | ⚠️ **PARTIAL** | Workers URL `cliffcheck.cliffcheck.workers.dev` is behind a Cloudflare Access login wall (302 → CF Access login). GitHub Pages mirror `cathalos92.github.io/cliffcheck/` returns 200 publicly. App IS reachable, just not on the Workers URL. | Pick the URL strategy (see Decision below). |
+| 1 | **Reachable by judges** | ✅ **PASS** | GitHub Pages `cathalos92.github.io/cliffcheck/` returns 200 publicly. Cloudflare Workers path retired post-submission (task-78). | None. |
 | 2 | **Open-source — LICENSE in repo root** | ❌ **FAIL** | No `LICENSE` file at repo root. Public on GitHub but no licence = ambiguous open-source status. | Add `LICENSE` (MIT). |
 | 3 | **Open-source — README in repo root** | ❌ **FAIL** | No `README.md` at repo root. | Create `README.md` covering: 1-line tagline, live URL(s), repo URL, demo scenario, local-run, AI-assistance disclosure, licence reference. |
 | 4 | **Single-file HTML constraint** (CLAUDE.md L322 — "hard VibeJam track rule") | ✅ **PASS** | Repo root has only `index.html`. No `.js`/`.ts`/`.tsx`/`.jsx` files; no `package.json`, no bundler config. | None. |
 | 5 | **No build step / CDN-only imports** | ✅ **PASS** | All deps loaded via `unpkg`, `jsdelivr`, `esm.sh` in `index.html` head. | None. |
 | 6 | **VibesOS stack — React 19 + TinyBase + Tailwind** | ✅ **PASS** | All three loaded via importmap and CDN (verified in `index.html:9–22`). | None. |
-| 7 | **Cloudflare Workers deploy** (CLAUDE.md L7 — track rule) | ⚠️ **PARTIAL** | `wrangler.toml` configured, Worker exists. Currently access-gated (see gate 1). Track rule says "Cloudflare Workers" — GitHub Pages alone may not satisfy track compliance. | Tied to gate 1. |
+| 7 | **VibesOS stack hosting** | ✅ **PASS** | GitHub Pages serves the same single `index.html` byte-for-byte. Workers path retired post-submission (task-78). VibesOS track spirit (single HTML + CDN-only, no build) is fully preserved. | None. |
 | 8 | **Repo publicly accessible** | ✅ **PASS** | `gh repo view cathalos92/cliffcheck --json visibility` → `PUBLIC`. | None. |
 | 9 | **Submission within timeline** (Apr 20–25, 2026) | ✅ **ON TRACK** | Today is 2026-04-25. Repo has commits within the window. | Submit before midnight PST. |
 
 ---
 
-## Decision needed: URL strategy
+## URL strategy — DECIDED + RETIRED
 
-## URL strategy — DECIDED
+**Decision (owner, 2026-04-25):** Submitted `https://cathalos92.github.io/cliffcheck/` (GitHub Pages) as the primary judge URL. Cloudflare Workers path was retained at submission time as track-stack evidence, then retired post-submission via task-78 (`wrangler.toml` removed, references cleaned).
 
-**Decision (owner, 2026-04-25):** Submit `https://cathalos92.github.io/cliffcheck/` (GitHub Pages) as the primary judge URL. Reference the Cloudflare Workers deploy + `wrangler.toml` in the README as VibesOS track-stack evidence. Do not require judges to authenticate.
+**Why this works:** VibesOS track spirit is the stack (single HTML + React + TinyBase + Tailwind + CDN-only, no build step) — GitHub Pages serves the identical artifact byte-for-byte.
 
-**Why this works:** VibesOS track spirit is the stack (single HTML + React + TinyBase + Tailwind + CDN-only, no build step) — GitHub Pages serves the identical artifact byte-for-byte. Workers deploy still exists for track evidence.
-
-**Residual risk:** If track rules literally require "deployed on Cloudflare Workers" as a binary gate (canonical rules URL unavailable), GitHub Pages alone may not satisfy. Mitigated by referencing the Workers config in README.
-
-Gates 1 and 7 are now resolved → ✅ effective PASS.
+Gates 1 and 7 are now resolved → ✅ PASS.
 
 ---
 
 ## Remaining fix order
 
 1. **Add `LICENSE`** (MIT). ~5 min.
-2. **Add `README.md`** — tagline, GitHub Pages URL (primary), Workers URL + wrangler reference (track evidence), repo URL, demo scenario, local-run, AI-assistance disclosure (Claude Code + PAPI), licence reference. ~20 min.
+2. **Add `README.md`** — tagline, GitHub Pages URL (primary), repo URL, demo scenario, local-run, AI-assistance disclosure (Claude Code + PAPI), licence reference. ~20 min.
 
 After these two, **all compliance gates close**. Remaining build effort goes to task-57 — score-lifting work against the 5 judging criteria.
 

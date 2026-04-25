@@ -1,5 +1,5 @@
 # Security Audit — Public Open-Source Repo Sweep
-> Last reviewed: task-58 — 25-04-2026
+> Last reviewed: task-78 — 25-04-2026
 
 **Status:** Findings draft — pending owner triage. **DO NOT** auto-create follow-up fix tasks. Human decides.
 
@@ -78,7 +78,7 @@ CDN scripts loaded **without** `integrity="sha384-..."` attributes:
 
 - `<head>` of `index.html` has **no** `<meta http-equiv="Content-Security-Policy">`.
 - GitHub Pages response: no `content-security-policy` header (GitHub Pages doesn't set one by default).
-- Cloudflare Workers route headers couldn't be inspected on the app response (auth-gated). `wrangler.toml` doesn't define a CSP either.
+- GitHub Pages response carries no `content-security-policy` header by default (Cloudflare Workers path retired post-submission per task-78).
 
 **Why low priority:** Without an XSS sink (per finding 2) there's no payload to constrain. CSP is belt-and-braces. Adding a workable CSP for an app that loads scripts from `unpkg`, `jsdelivr`, `esm.sh` is non-trivial and would risk breaking the deploy. Not worth doing pre-submission.
 
@@ -88,7 +88,7 @@ CDN scripts loaded **without** `integrity="sha384-..."` attributes:
 
 ## Cross-references
 
-- **Workers URL gating** (Cloudflare Access login wall on `cliffcheck.cliffcheck.workers.dev`) is already documented in [task-56 findings](../submission/rules-compliance.md#compliance-gates) row 1. Not duplicated here. URL strategy decision still pending.
+- **Workers URL gating** (Cloudflare Access login wall on the now-retired `workers.dev` URL) was documented in [task-56 findings](../submission/rules-compliance.md#compliance-gates) row 1. Resolved via task-78 — Cloudflare Workers path retired post-submission; GitHub Pages is canonical.
 
 ## Out-of-scope items discovered
 

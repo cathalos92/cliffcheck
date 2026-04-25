@@ -4,7 +4,8 @@
 Benefits Cliff Navigator — a phone-first web app revealing the hidden math behind benefits cliffs. Built for VibeJam 2026 hackathon (5-day sprint ending April 25 midnight PST).
 
 **Theme:** "Escape the permanent underclass"
-**Track:** VibesOS (React + TinyBase + Tailwind, single HTML file, Cloudflare Workers)
+**Track:** VibesOS (React + TinyBase + Tailwind, single HTML file)
+**Deploy:** GitHub Pages — `https://cathalos92.github.io/cliffcheck/` (canonical public URL)
 **Repo:** github.com/cathalos92/cliffcheck (open source, required by rules)
 
 ## Stack (VibesOS)
@@ -12,7 +13,7 @@ Benefits Cliff Navigator — a phone-first web app revealing the hidden math beh
 - TinyBase for local-first data (financial data stays on-device)
 - Tailwind CSS for styling
 - Single HTML file architecture — no backend server
-- Deploy to Cloudflare Workers via VibesOS deploy pipeline
+- Deploy to GitHub Pages (canonical) — single `index.html` served as a static asset
 - Chart.js (or similar lightweight library) for cliff visualization
 
 ## VibesOS Stack (Direct)
@@ -321,7 +322,7 @@ These rules come from 80+ cycles of dogfooding. They prevent the most common sou
 ## VibesOS Stack Conventions
 
 - CDN sources only — pin major versions. React 19, TinyBase latest, Tailwind Play CDN, Chart.js, Babel standalone.
-- No service workers, web workers, or WASM. Keep vanilla for trivial Cloudflare Workers hosting.
+- No service workers, web workers, or WASM. Keep vanilla for trivial static hosting on GitHub Pages.
 - Do NOT add `package.json`, a build script, or a bundler. Single-file is a hard VibeJam track rule.
 
 ## TinyBase Conventions
