@@ -1349,6 +1349,32 @@
         );
       }
 
+      // ── TipJarCard ──
+      // Soft post-result ask, placed after ManagerBrief so the user has seen
+      // their cliff chart before being asked. Free-first framing, single CTA.
+      function TipJarCard() {
+        return (
+          <div className="mt-6 rounded-xl border border-amber-200 bg-amber-50/60 px-5 py-5 text-center">
+            <p className="text-sm font-semibold text-stone-900">Did this help?</p>
+            <p className="mt-1.5 text-xs text-stone-600 leading-relaxed max-w-sm mx-auto">
+              CliffCheck is free, and stays free.
+            </p>
+            <p className="mt-1.5 text-xs text-stone-600 leading-relaxed max-w-sm mx-auto">
+              I'm a solo developer and want to take this to all 50 states. Every tip helps.
+            </p>
+            <a
+              href="https://ko-fi.com/cathalos"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mt-4 inline-flex items-center justify-center gap-2 w-full sm:w-auto sm:min-w-[200px] min-h-[44px] px-6 py-2.5 rounded-lg bg-amber-500 text-stone-900 font-bold text-sm hover:bg-amber-600 active:bg-amber-700 transition-colors"
+            >
+              <span aria-hidden="true">☕</span>
+              <span>Buy me a coffee</span>
+            </a>
+          </div>
+        );
+      }
+
       // ── SourcesFooter ──
       function SourcesFooter() {
         const sources = [
@@ -1360,11 +1386,9 @@
           { label: 'Section 8 / Housing Choice Vouchers (HUD)', url: 'https://www.hud.gov/helping-americans/housing-choice-vouchers-tenants' },
         ];
         return (
-          <details className="mt-6 border-t border-stone-200 pt-4">
-            <summary className="text-xs text-stone-400 cursor-pointer select-none hover:text-stone-600 list-none flex items-center gap-1.5">
-              <span>▸</span> Sources &amp; data references
-            </summary>
-            <ul className="mt-3 space-y-2">
+          <div className="mt-6 border-t border-stone-200 pt-4">
+            <p className="text-xs text-stone-400 mb-3">Sources &amp; data references</p>
+            <ul className="space-y-2">
               {sources.map(({ label, url }) => (
                 <li key={url}>
                   <a href={url} target="_blank" rel="noopener noreferrer"
@@ -1374,7 +1398,7 @@
                 </li>
               ))}
             </ul>
-          </details>
+          </div>
         );
       }
 
@@ -1434,6 +1458,7 @@
                   </div>
                 </div>
                 <ManagerBrief />
+                <TipJarCard />
                 <SourcesFooter />
               </div>
             </div>
@@ -1446,16 +1471,13 @@
       root.render(<App />);
     </script>
 
-    <!-- ── Footer credits ───────────────────────────────────────────────
-         Discreet attribution + open-source link. Stone/amber palette,
-         system font, plain separators — matches SourcesFooter aesthetic. -->
-    <footer class="text-center text-xs text-stone-400 py-6 px-4">
-      Built with
-      <a href="https://claude.com/claude-code" target="_blank" rel="noopener noreferrer" class="hover:text-stone-600 underline underline-offset-2">Claude Code</a>
-      ·
-      <a href="https://getpapi.ai" target="_blank" rel="noopener noreferrer" class="hover:text-stone-600 underline underline-offset-2">PAPI</a>
-      ·
-      <a href="https://github.com/cathalos92/cliffcheck" target="_blank" rel="noopener noreferrer" class="hover:text-stone-600 underline underline-offset-2">Source on GitHub</a>
+    <footer class="text-center text-sm text-stone-400 py-8 px-4">
+      <span class="mr-2">Built with</span>
+      <a href="https://claude.com/claude-code" target="_blank" rel="noopener noreferrer" class="hover:text-stone-600 underline underline-offset-2 mx-2">Claude Code</a>
+      <span class="mx-2">·</span>
+      <a href="https://getpapi.ai" target="_blank" rel="noopener noreferrer" class="hover:text-stone-600 underline underline-offset-2 mx-2">PAPI</a>
+      <span class="mx-2">·</span>
+      <a href="https://github.com/cathalos92/cliffcheck" target="_blank" rel="noopener noreferrer" class="hover:text-stone-600 underline underline-offset-2 mx-2">Source on GitHub</a>
     </footer>
   </body>
 </html>
