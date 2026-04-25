@@ -40,6 +40,7 @@
 | Document | Status | Last Updated | Consumer |
 |----------|--------|--------------|----------|
 | [audits/papi-audit-c8.md](audits/papi-audit-c8.md) | Draft | 2026-04-25 | user, builder |
+| [audits/state-calc-audit-c10.md](audits/state-calc-audit-c10.md) | Draft | 2026-04-25 | user, builder, planner |
 
 ---
 
