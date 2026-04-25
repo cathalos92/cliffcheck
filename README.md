@@ -2,7 +2,7 @@
 
 > See the hidden math that keeps families stuck. Find out if a raise actually makes you poorer.
 
-**Live app:** **https://cathalos92.github.io/cliffcheck/** (phone-first — open on mobile for the intended experience)
+**Live app:** **https://cliffcheck.com** (phone-first — open on mobile for the intended experience)
 
 A working-class American earning $44k can be offered a $26k raise and end up **$5.5k poorer** in effective take-home — once SNAP, Medicaid, ACA premium tax credits, Section 8, and childcare subsidies phase out together. The math is deliberately hidden by fragmented benefit systems. CliffCheck reveals it.
 
@@ -88,7 +88,7 @@ The benefit calculation rules (SNAP, Medicaid, ACA, Section 8, PFCC childcare) w
 
 ## Repo
 
-- **Live app:** https://cathalos92.github.io/cliffcheck/
+- **Live app:** https://cliffcheck.com
 - **Source:** https://github.com/cathalos92/cliffcheck
 - **Licence:** MIT — see [`LICENSE`](LICENSE)
 

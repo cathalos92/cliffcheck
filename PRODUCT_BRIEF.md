@@ -44,7 +44,7 @@ A phone-first web app that lets users input their family situation and current b
 - **Source references** — Collapsible links to government sources per benefit per state.
 - **Share-ready surface** — OG image (task-71), social meta tags, screenshot polish.
 - **Audits shipped** — VibeJam rules compliance (task-56), security audit (task-58), PAPI codebase audit (task-55), judging-criteria scorecard (task-57).
-- **Deploy** — GitHub Pages (custom domain pending — see task-77), v0.9.0 tagged.
+- **Deploy** — GitHub Pages on `cliffcheck.com` (custom domain), v0.9.0 tagged.
 
 ## Known Gaps (post-submission carry-forward to C10+)
 - **Accuracy fixes**: employer-coverage toggle (task-74), combined-household income labels (task-75), SNAP net-income gating (task-79), per-state childcare label (task-53), unsupported-state guard (task-51), full benefit-calc audit with primary sources (task-54).
@@ -84,7 +84,7 @@ A phone-first web app that lets users input their family situation and current b
 - **Deploy:** GitHub Pages (canonical), MIT licensed, open source on GitHub
 
 ## Live URL
-**https://cathalos92.github.io/cliffcheck/** (custom domain pending — see task-77)
+**https://cliffcheck.com**
 
 ## Phase
 Submitted to VibeJam 2026. Now in post-submission accuracy-hardening phase. See AD-7 for sequencing rationale.
