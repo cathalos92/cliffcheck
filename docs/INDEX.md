@@ -21,6 +21,25 @@
 |----------|--------|--------------|----------|
 | [design/critique-2026-04-24.md](design/critique-2026-04-24.md) | Active | 2026-04-24 | planner, builder |
 
+## Submission
+
+| Document | Status | Last Updated | Consumer |
+|----------|--------|--------------|----------|
+| [submission/rules-compliance.md](submission/rules-compliance.md) | Draft | 2026-04-25 | user, builder |
+| [submission/judging-scorecard.md](submission/judging-scorecard.md) | Draft | 2026-04-25 | user, builder |
+
+## Security
+
+| Document | Status | Last Updated | Consumer |
+|----------|--------|--------------|----------|
+| [security/audit-findings.md](security/audit-findings.md) | Draft | 2026-04-25 | user, builder |
+
+## Audits
+
+| Document | Status | Last Updated | Consumer |
+|----------|--------|--------------|----------|
+| [audits/papi-audit-c8.md](audits/papi-audit-c8.md) | Draft | 2026-04-25 | user, builder |
+
 ---
 
 ### Status values
