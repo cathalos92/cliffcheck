@@ -883,57 +883,24 @@
                     isWorse ? 'text-red-600' : isBetter ? 'text-green-600' : 'text-stone-400'
                   }`}
                    style={{fontVariantNumeric: 'tabular-nums'}}>
-                  {isWorse ? '−' : isBetter ? '+' : '—'}{isWorse || isBetter ? fmtDollars(diff) + '/yr' : 'no change'}
+                  {isWorse ? '−' : isBetter ? '+' : '—'}{isWorse || isBetter ? fmtDollars(Math.abs(diff)) + '/yr' : 'no change'}
                 </p>
               </div>
             </div>
 
-            {isWorse && (
-              <div className="mt-4 p-3.5 bg-red-50 rounded-xl border border-red-200">
-                <p className="text-base font-bold text-stone-900 leading-snug" style={{fontVariantNumeric:'tabular-nums'}}>
-                  {raiseAmount > 0
-                    ? <>Your {fmtDollars(raiseAmount)} raise makes you {fmtDollars(Math.abs(diff))} poorer.</>
-                    : <>This offer makes you {fmtDollars(Math.abs(diff))} worse off than today.</>}
-                  {safeExit ? <> You'd need at least {fmtDollars(safeExit)}/yr to break even.</> : null}
-                </p>
-                <p className="text-xs text-red-600 mt-1.5">
-                  Benefits phase out faster than your wages grow.
-                </p>
-                {breakdown.length > 0 && (
-                  <div className="mt-2.5 pt-2.5 border-t border-red-200 space-y-1">
-                    {breakdown.map(({ label, delta }) => {
-                      // For ACA cost: positive delta = new/higher cost = bad
-                      // For others: negative delta = loss = bad
-                      const isLoss = label === 'ACA cost' ? delta > 0 : delta < 0;
-                      const sign   = label === 'ACA cost' ? (delta > 0 ? '+' : '−') : (delta < 0 ? '−' : '+');
-                      return (
-                        <p key={label} className={`text-xs font-medium ${isLoss ? 'text-red-600' : 'text-stone-500'}`}
-                           style={{fontVariantNumeric: 'tabular-nums'}}>
-                          {label} {sign}${Math.abs(delta).toLocaleString()}/mo
-                        </p>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-            )}
-            {isWorse && safeExit && (
-              <div className="mt-3 p-4 bg-green-50 rounded-xl border border-green-200">
-                <p className="text-xs font-semibold text-green-600 uppercase tracking-wide">Your negotiation target</p>
-                <p className="text-3xl font-extrabold text-green-700 mt-1 leading-none"
-                   style={{fontVariantNumeric:'tabular-nums'}}>
-                  {fmtDollars(safeExit)}/yr
-                </p>
-                <p className="text-sm text-green-700 mt-1.5">
-                  To come out ahead, ask for at least this.
-                </p>
-              </div>
-            )}
-            {isBetter && (
-              <div className="mt-4 p-3.5 bg-green-50 rounded-xl border border-green-200">
-                <p className="text-sm font-semibold text-green-700">
-                  ✓ This raise improves your total value by {fmtDollars(diff)}/yr
-                </p>
+            {breakdown.length > 0 && (
+              <div className="mt-4 pt-4 border-t border-stone-100 space-y-1.5">
+                <p className="text-xs font-medium text-stone-400 uppercase tracking-wide mb-2">Benefit changes (monthly)</p>
+                {breakdown.map(({ label, delta }) => {
+                  const isLoss = label === 'ACA cost' ? delta > 0 : delta < 0;
+                  const sign   = label === 'ACA cost' ? (delta > 0 ? '+' : '−') : (delta < 0 ? '−' : '+');
+                  return (
+                    <p key={label} className={`text-xs font-medium ${isLoss ? 'text-red-600' : 'text-green-700'}`}
+                       style={{fontVariantNumeric: 'tabular-nums'}}>
+                      {label} {sign}${Math.abs(delta).toLocaleString()}/mo
+                    </p>
+                  );
+                })}
               </div>
             )}
             {current.childcareValue > 0 && (
@@ -941,6 +908,57 @@
                 Note: PFCC has waitlists in some Ohio counties — availability varies. Contact your county JFS office to confirm.
               </p>
             )}
+          </div>
+        );
+      }
+
+      // ── LiveSummaryStrip ──
+      function LiveSummaryStrip() {
+        const stateCode        = useCell('profile', 'current', 'stateCode')        ?? DEFAULTS.stateCode;
+        const familySize       = useCell('profile', 'current', 'familySize')       ?? DEFAULTS.familySize;
+        const currentIncome    = useCell('profile', 'current', 'currentIncome')    ?? DEFAULTS.currentIncome;
+        const offeredIncome    = useCell('profile', 'current', 'offeredIncome')    ?? DEFAULTS.offeredIncome;
+        const adultCount       = useCell('profile', 'current', 'adultCount')       ?? DEFAULTS.adultCount;
+        const hasSection8Voucher = useCell('profile', 'current', 'hasSection8Voucher') ?? DEFAULTS.hasSection8Voucher;
+        const pfccEnrolled     = useCell('profile', 'current', 'pfccEnrolled')     ?? DEFAULTS.pfccEnrolled;
+
+        const opts = { stateCode, adultCount: Number(adultCount), hasVoucher: !!hasSection8Voucher, pfccEnrolled: !!pfccEnrolled };
+
+        const current = useMemo(
+          () => calcEffectiveTakeHome(Number(currentIncome), Number(familySize), opts),
+          [stateCode, currentIncome, familySize, adultCount, hasSection8Voucher, pfccEnrolled]
+        );
+        const offered = useMemo(
+          () => calcEffectiveTakeHome(Number(offeredIncome), Number(familySize), opts),
+          [stateCode, offeredIncome, familySize, adultCount, hasSection8Voucher, pfccEnrolled]
+        );
+
+        const diff = offered.totalEffective - current.totalEffective;
+        const isWorse  = diff < -500;
+        const isBetter = diff > 500;
+
+        return (
+          <div className="mt-3 bg-stone-100 rounded-xl px-4 py-3 flex items-center justify-between gap-2">
+            <div className="min-w-0">
+              <p className="text-xs text-stone-400 leading-none mb-0.5">Today</p>
+              <p className="text-base font-bold text-stone-900 leading-none"
+                 style={{fontVariantNumeric:'tabular-nums'}}>
+                {fmtDollars(current.totalEffective)}
+              </p>
+            </div>
+            <div className={`shrink-0 text-sm font-bold px-2 py-1 rounded-lg ${
+              isWorse ? 'bg-red-100 text-red-700' : isBetter ? 'bg-green-100 text-green-700' : 'bg-stone-200 text-stone-500'
+            }`} style={{fontVariantNumeric:'tabular-nums'}}>
+              {isWorse ? '−' : isBetter ? '+' : '—'}{isWorse || isBetter ? fmtDollars(Math.abs(diff)) : ''}
+            </div>
+            <div className="min-w-0 text-right">
+              <p className="text-xs text-stone-400 leading-none mb-0.5">After offer</p>
+              <p className={`text-base font-bold leading-none ${
+                isWorse ? 'text-red-600' : isBetter ? 'text-green-700' : 'text-stone-900'
+              }`} style={{fontVariantNumeric:'tabular-nums'}}>
+                {fmtDollars(offered.totalEffective)}
+              </p>
+            </div>
           </div>
         );
       }
@@ -1371,6 +1389,7 @@
                 <div className="md:grid md:grid-cols-[2fr_3fr] md:gap-6 md:items-start mt-2">
                   <div>
                     <ProfileForm />
+                    <LiveSummaryStrip />
                   </div>
                   <div>
                     <CliffChart />
