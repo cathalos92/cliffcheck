@@ -1182,7 +1182,7 @@
         ].filter(b => b.delta !== 0) : [];
 
         return (
-          <div className="mt-4 bg-white rounded-2xl border border-stone-200 p-5">
+          <div id="cliff-chart" className="mt-4 bg-white rounded-2xl border border-stone-200 p-5">
             <h2 className="text-base font-semibold text-stone-800 mb-3">
               Benefits cliff — Ohio, {Number(familySize)} {Number(familySize) === 1 ? 'person' : 'people'}
             </h2>
@@ -1348,6 +1348,30 @@
         );
       }
 
+      // ── DemoButton ──
+      const DEMO_PROFILE = {
+        stateCode: 'OH', familySize: 4, currentIncome: 44000,
+        offeredIncome: 70000, adultCount: 2, hasSection8Voucher: false, pfccEnrolled: true,
+      };
+
+      function DemoButton() {
+        function handleDemo() {
+          store.setRow('profile', 'current', DEMO_PROFILE);
+          setTimeout(() => {
+            const el = document.getElementById('cliff-chart');
+            if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          }, 50);
+        }
+        return (
+          <button
+            onClick={handleDemo}
+            className="w-full mt-3 h-12 rounded-lg bg-amber-500 text-stone-900 font-bold text-sm hover:bg-amber-600 active:bg-amber-700 transition-colors"
+          >
+            Try the demo — Ohio warehouse worker, family of 4
+          </button>
+        );
+      }
+
       // ── App ──
       function App() {
         useEffect(() => {
@@ -1367,6 +1391,7 @@
                   <p className="text-sm text-stone-500 mt-1">
                     See the real cost of a raise — including what you'd lose in benefits
                   </p>
+                  <DemoButton />
                 </div>
                 <div className="md:grid md:grid-cols-[2fr_3fr] md:gap-6 md:items-start mt-2">
                   <div>
