@@ -1,5 +1,5 @@
 # Ohio Benefit Program Rules — FY2026
-> Last reviewed: task-1 — 21-04-2026
+> Last reviewed: task-79 — 25-04-2026
 
 Research document for the CliffCheck benefit calculation engine. Covers Ohio-specific rules for FY2026 with sources. All figures apply to the 48 contiguous states unless noted.
 
@@ -67,27 +67,39 @@ Ohio uses **Broad-Based Categorical Eligibility (BBCE)** — gross income limit 
 | Standard deduction (HH 4) | $228/month |
 | Standard deduction (HH 5) | $247/month |
 | Earned income deduction | 20% of gross earned income |
+| Excess shelter deduction | shelter cost − 50% of adjusted income, capped at $712/mo (FY2026, 48 states + DC, no elderly/disabled) |
 
 ### Benefit Calculation Formula
 ```
-net_income = gross_monthly - standard_deduction - (earned_income × 0.20)
-snap_benefit = max(0, max_benefit - (net_income × 0.30))
+adjusted = gross_monthly − standard_deduction − (earned_income × 0.20)
+shelter_proxy = (has_voucher) ? 0 : gross_monthly × 0.30        // HUD affordability proxy
+excess_shelter = min($712, max(0, shelter_proxy − adjusted × 0.5))
+net_income = max(0, adjusted − excess_shelter)
+gross_test: gross ≤ state.gross_limit (200% FPL in OH BBCE; 130% FPL federal default)
+net_test:   net_income ≤ 100% FPL/12
+snap_benefit = max(0, max_benefit − (net_income × 0.30))
 ```
 
 SNAP is a **graduated phase-out**, not a hard cliff. Benefit reduces $0.30 per $1 of net income.
 
+The **gross test** and **net test** are both binding — BBCE waives the asset test and raises the gross limit but never waives the net test. CliffCheck applies both correctly per state.
+
 ### Cliff Point — Family of 4
 **Binding constraint: the net income test at 100% FPL ($2,750/month), not the benefit formula.**
 
+For an Ohio family of 4 with no Section 8 voucher and earnings near the cliff edge, the shelter proxy (~30% of gross) is approximately equal to 50% of adjusted income, so excess shelter ≈ 0 in this band — the cliff edge is unchanged from the simpler model:
+
 ```
-net = gross × 0.80 - $228
-$2,750 = gross × 0.80 - $228
+net = gross × 0.80 − $228
+$2,750 = gross × 0.80 − $228
 gross = ($2,750 + $228) / 0.80 = $3,723/month = ~$44,671/year
 ```
 
 **SNAP = $0 for family of 4 when gross income ≥ ~$44,671/year** (engine-verified).
 
 The benefit formula would zero out at ~$53,100 (net = $3,313/month), but the 100% FPL net income test eliminates eligibility first (~$44,671). Ohio BBCE only waives the asset test — the net income test remains. **Corrected from initial research estimate of $53,100.**
+
+The excess shelter deduction matters most for very-low-income households without a voucher (where shelter > 50% of adjusted income) — it can push borderline households back onto SNAP. The deduction is capped at $712/mo per USDA FY2026 COLA notice for households without elderly/disabled members.
 
 ### Ohio-Specific Notes
 - Ohio applies BBCE since 2010 — no asset test for most households
