@@ -18,9 +18,21 @@
     <meta name="twitter:description" content="A $26k raise leaves an Ohio family of 4 $5,500 poorer. See the hidden math. Find your safe-exit income." />
     <meta name="twitter:image"       content="https://cathalos92.github.io/cliffcheck/og-image.png" />
     <script>globalThis.process = { env: { NODE_ENV: "production" } };</script>
-    <script src="https://unpkg.com/@babel/standalone@7.26.0/babel.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <!-- ── CDN dependencies — pinned versions + Subresource Integrity (SRI) ──
+         Hashes generated via: curl -L <url> | openssl dgst -sha384 -binary | openssl base64 -A
+         Pinned: @babel/standalone 7.26.0, @tailwindcss/browser 4.2.4, chart.js 4.4.0
+         Importmap entries below resolve esm.sh modules at fixed semver (react@19.2.4, tinybase@8) —
+         the importmap spec does not yet support `integrity`, so SRI on those is deferred until
+         the standard ships. (Per task-58 audit + task-69 hardening.) -->
+    <script src="https://unpkg.com/@babel/standalone@7.26.0/babel.min.js"
+            integrity="sha384-gfoIoghgrQ+acOP1IAci7PIH0wjwxDVkjgSczIHAcAGEWKu6Ztq1HaNa41oW95ya"
+            crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4.2.4"
+            integrity="sha384-yNSZBFvuOWcmww494a9+1zNuvgUGEXoWkein7cxP8wHUTi3iXCU4vJ7hr3tzBCml"
+            crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"
+            integrity="sha384-e6nUZLBkQ86NJ6TVVKAeSaK8jWa3NhkYWZFomE39AvDbQWeie9PlQqM3pmYW5d1g"
+            crossorigin="anonymous"></script>
     <script type="importmap">
       {
         "imports": {
