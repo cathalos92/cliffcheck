@@ -137,6 +137,13 @@
           maxChildrenIndex: 3,     // EITC table is keyed 0–3 (3+ all share the 3-child schedule)
           maxFamilySize: 6,        // SNAP std deduction / max benefit + ACA SLCSP tables sized 1–6
         },
+        // Federal HUD Housing Choice Voucher — uniform rule across all states.
+        // Tenant pays 30% of monthly adjusted gross income; voucher covers the rest
+        // up to the local payment standard. 24 CFR §982.305(a) — Total Tenant Payment.
+        // https://www.hud.gov/program_offices/public_indian_housing/programs/hcv
+        housing: {
+          tenantShareRate: 0.30,
+        },
       };
 
       function getFPL(familySize) {
@@ -184,7 +191,6 @@
           housing: {
             incomeLimitAnnual: 52500,     // 50% AMI Columbus family of 4
             paymentStandardMonthly: 1750, // 3BR Columbus
-            tenantShareRate: 0.30,
           },
         },
         TX: {
@@ -226,7 +232,6 @@
           housing: {
             incomeLimitAnnual: 54000,     // 50% AMI Dallas family of 4
             paymentStandardMonthly: 2100, // 3BR Dallas
-            tenantShareRate: 0.30,
           },
         },
         NC: {
@@ -267,7 +272,6 @@
           housing: {
             incomeLimitAnnual: 52000,     // 50% AMI Raleigh family of 4
             paymentStandardMonthly: 1800, // 3BR Raleigh
-            tenantShareRate: 0.30,
           },
         },
         MI: {
@@ -308,7 +312,6 @@
           housing: {
             incomeLimitAnnual: 48000,     // 50% AMI Detroit family of 4
             paymentStandardMonthly: 1600, // 3BR Detroit
-            tenantShareRate: 0.30,
           },
         },
       };
@@ -465,7 +468,7 @@
         const h = state.housing;
         if (!hasVoucher) return 0;
         if (annualIncome > h.incomeLimitAnnual) return 0;
-        const tenantShare = (annualIncome / 12) * h.tenantShareRate;
+        const tenantShare = (annualIncome / 12) * FED.housing.tenantShareRate;
         return Math.max(0, Math.round((h.paymentStandardMonthly - tenantShare) * 12));
       }
 
