@@ -17,10 +17,10 @@ A phone-first web app that lets users input their family situation and current b
 
 ## Demo Scenario
 **Ohio warehouse worker** — two-adult household, two children, $44k wages. Offered promotion to $70k.
-- Current effective take-home: ~$70.6k (wages $44k + SNAP $2.2k + Medicaid proxy $4.5k + PFCC childcare $19.9k)
-- After promotion: ~$65.1k effective — loses SNAP, Medicaid, PFCC childcare; incurs ACA premiums
-- Net: $26k raise leaves them ~$5.5k worse off in effective take-home
-- Safe exit: ~$79k (first income where effective exceeds current + $2k buffer)
+- Current effective take-home: ~$74.9k (wages $44k + SNAP $2.2k + Medicaid proxy $4.5k + PFCC childcare $19.9k + federal EITC $4.3k)
+- After promotion: ~$65.1k effective — loses SNAP, Medicaid, PFCC childcare, and most of the EITC; incurs ACA premiums
+- Net: $26k raise leaves them ~$9.8k worse off in effective take-home
+- Safe exit: ~$85k (first income where effective exceeds current + $2k buffer)
 - The $44k→$48k range is the sharpest danger zone — PFCC childcare phase-out dominates the cliff shape
 
 ## Target Users
