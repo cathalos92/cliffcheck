@@ -22,7 +22,7 @@
   <line x1="200" y1="222" x2="1000" y2="222" stroke="#E7E5E4" stroke-width="1.5"/>
 
   <!-- The big number — pulled inward, sized so it fits in 600px safe zone -->
-  <text x="600" y="365" text-anchor="middle" font-family="system-ui,-apple-system,sans-serif" font-size="120" font-weight="900" fill="#DC2626">−$5,500</text>
+  <text x="600" y="365" text-anchor="middle" font-family="system-ui,-apple-system,sans-serif" font-size="120" font-weight="900" fill="#DC2626">−$9,800</text>
 
   <!-- Subtitle -->
   <text x="600" y="412" text-anchor="middle" font-family="system-ui,-apple-system,sans-serif" font-size="24" font-weight="400" fill="#44403C">worse off after a $26,000 raise</text>
@@ -30,8 +30,8 @@
   <!-- Safe exit pill -->
   <rect x="320" y="450" width="560" height="78" rx="14" fill="#FEF3C7"/>
   <text x="600" y="479" text-anchor="middle" font-family="system-ui,-apple-system,sans-serif" font-size="14" font-weight="700" fill="#92400E" letter-spacing="1.5">SAFE EXIT</text>
-  <text x="600" y="510" text-anchor="middle" font-family="system-ui,-apple-system,sans-serif" font-size="22" font-weight="800" fill="#92400E">Need $79,000/yr to break even</text>
+  <text x="600" y="510" text-anchor="middle" font-family="system-ui,-apple-system,sans-serif" font-size="22" font-weight="800" fill="#92400E">Need $85,000/yr to break even</text>
 
   <!-- URL (decorative, outside centre-safe zone — fine to crop) -->
-  <text x="600" y="578" text-anchor="middle" font-family="system-ui,-apple-system,sans-serif" font-size="17" font-weight="500" fill="#78716C">cathalos92.github.io/cliffcheck</text>
+  <text x="600" y="578" text-anchor="middle" font-family="system-ui,-apple-system,sans-serif" font-size="17" font-weight="500" fill="#78716C">cliffcheck.com</text>
 </svg>

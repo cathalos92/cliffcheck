@@ -4,7 +4,7 @@
 
 **Live app:** **https://cliffcheck.com** (phone-first — open on mobile for the intended experience)
 
-A working-class American earning $44k can be offered a $26k raise and end up **$5.5k poorer** in effective take-home — once SNAP, Medicaid, ACA premium tax credits, Section 8, and childcare subsidies phase out together. The math is deliberately hidden by fragmented benefit systems. CliffCheck reveals it.
+A working-class American earning $44k can be offered a $26k raise and end up **$9,800 poorer** in effective take-home — once SNAP, Medicaid, ACA premium tax credits, Section 8, federal EITC, and childcare subsidies phase out together. The math is deliberately hidden by fragmented benefit systems. CliffCheck reveals it.
 
 Built for **VibeJam 2026** (April 20–25, 2026) — VibesOS track.
 
@@ -33,10 +33,10 @@ All calculation runs locally in your browser. **No financial data leaves your de
 
 **Ohio warehouse worker, family of 4, currently earning $44k.** Offered a promotion to $70k.
 
-- **Current** effective take-home: ~$70.6k (wages $44k + SNAP $2.2k + Medicaid proxy $4.5k + PFCC childcare subsidy $19.9k)
-- **After promotion**: ~$65.1k effective — loses SNAP, Medicaid, PFCC childcare; incurs ACA premiums
-- **Net**: $26k raise leaves them **$5.5k worse off**
-- **Safe exit**: ~$79k — first income where effective take-home exceeds current + a $2k buffer
+- **Current** effective take-home: ~$74.9k (wages $44k + SNAP $2.2k + Medicaid proxy $4.5k + PFCC childcare subsidy $19.9k + federal EITC $4.3k)
+- **After promotion**: ~$65.1k effective — loses SNAP, Medicaid, PFCC childcare, and most of the EITC; incurs ACA premiums
+- **Net**: $26k raise leaves them **$9.8k worse off**
+- **Safe exit**: ~$85k — first income where effective take-home exceeds current + a $2k buffer
 
 Open the app, click **"Try the demo"**, watch the chart.
 
