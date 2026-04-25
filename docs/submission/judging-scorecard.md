@@ -1,5 +1,5 @@
 # VibeJam 2026 — Judging Criteria Scorecard
-> Last reviewed: task-57 — 25-04-2026
+> Last reviewed: task-78 — 25-04-2026
 
 **Status:** Findings draft — pending owner triage. **DO NOT** auto-create follow-up fix tasks.
 
@@ -66,7 +66,7 @@ Token-drift cleanup (orange-50 cream + amber-500 CTA) is a +0.5 if done with the
 - Real-time slider → chart redraw, no submit button (CLAUDE.md L325 + `.impeccable.md` Section 7 compliance).
 - Phase-outs continuous (SNAP $0.30/$1, ACA piecewise linear) — no false binary cliffs except where HUD policy says they exist.
 - Manager brief copy-to-clipboard is functional, generates 3-line negotiation script.
-- Both tested URLs reachable: GitHub Pages 200, Cloudflare Workers 302 (gated, accepted as track-stack evidence).
+- Public URL reachable: GitHub Pages 200 (`cathalos92.github.io/cliffcheck/`). Cloudflare Workers path retired post-submission (task-78).
 - Source citations inline at every state module — judges can audit the math.
 
 ⚠️ **Gaps:**
