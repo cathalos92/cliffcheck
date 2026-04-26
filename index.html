@@ -106,6 +106,23 @@
             [3.00, 0.0996],
             [4.00, 0.0996],
           ],
+          // CSR: Cost-Sharing Reduction (Silver plan AV uplift below 250% FPL).
+          // Source: HHS Notice of Benefit and Payment Parameters 2026, 45 CFR 156.420.
+          // CSR reduces deductible/copay/OOP-max — NOT premium. Modelled as an
+          // *effective value* (annual avoided cost-sharing per enrollee), separate
+          // from the premium tax credit (calcACAPremium).
+          // Per-enrollee dollar values are KFF national averages (Silver plan
+          // expected annual cost-sharing at base 70% AV minus expected cost-sharing
+          // at the CSR-uplifted AV tier). Simplification: per-enrollee × familySize;
+          // does not vary by age, region, or actual utilization. Eligibility:
+          // <250% FPL AND on the marketplace (not Medicaid, not employer-covered).
+          csr: {
+            tiers: [
+              { maxFPL: 1.50, av: 0.94, perEnrolleeAnnual: 1400 },
+              { maxFPL: 2.00, av: 0.87, perEnrolleeAnnual: 900  },
+              { maxFPL: 2.50, av: 0.73, perEnrolleeAnnual: 200  },
+            ],
+          },
         },
         medicaid: {
           // Dollar proxy for the value of free Medicaid coverage (per adult per year).
@@ -388,6 +405,25 @@
         return Math.min(contribution, slcspAnnual);
       }
 
+      // ── ACA Cost-Sharing Reduction (annual effective value, positive) ──────
+      // CSR reduces cost-sharing (deductible/copay/OOP-max) for Silver-plan
+      // enrollees below 250% FPL. Modelled as an additive *effective value*
+      // (annual avoided out-of-pocket cost), distinct from the premium tax
+      // credit handled by calcACAPremium. Eligibility mirrors PTC: only when
+      // the household is on the marketplace (i.e. acaCost > 0 in the
+      // orchestrator), so calcEffectiveTakeHome gates this call. Returns 0
+      // outside the CSR window (<100% FPL Medicaid, ≥250% FPL no CSR, >400%
+      // FPL premium cliff). Silver plan assumed (federal benchmark default).
+      function calcACACSR(annualIncome, familySize) {
+        const fpl = getFPL(familySize);
+        const fplFraction = annualIncome / fpl;
+        if (fplFraction < FED.aca.eligibleFPLMin) return 0;
+        const tier = FED.aca.csr.tiers.find(t => fplFraction <= t.maxFPL);
+        if (!tier) return 0;
+        const size = Math.min(Math.max(1, familySize), 6);
+        return tier.perEnrolleeAnnual * size;
+      }
+
       // ── Medicaid eligibility check (boolean) ───────────────────────────────
       // Expansion states: adults eligible ≤ expansionFPL.
       // Non-expansion states: parentFPL when household has children, childlessAdultFPL when not.
@@ -504,18 +540,18 @@
 
         const snapValue      = calcSnap(annualIncome, familySize, calcOpts);
         const medicaidValue  = onMedicaid ? calcMedicaidValue(annualIncome, familySize, calcOpts) : 0;
-        const acaCost        = (onMedicaid || employerHealthInsurance)
-          ? 0
-          : calcACAPremium(annualIncome, familySize, calcOpts);
+        const onMarketplace  = !onMedicaid && !employerHealthInsurance;
+        const acaCost        = onMarketplace ? calcACAPremium(annualIncome, familySize, calcOpts) : 0;
+        const acaCSRValue    = onMarketplace ? calcACACSR(annualIncome, familySize) : 0;
         const section8Value  = calcSection8Value(annualIncome, familySize, calcOpts);
         const childcareValue = calcChildcareSubsidy(annualIncome, familySize, calcOpts);
         const eitcValue      = calcFederalEITC(annualIncome, familySize, calcOpts);
 
         const totalEffective = Math.round(
-          annualIncome + snapValue + medicaidValue + section8Value + childcareValue + eitcValue - acaCost
+          annualIncome + snapValue + medicaidValue + section8Value + childcareValue + eitcValue + acaCSRValue - acaCost
         );
 
-        return { grossWages: annualIncome, snapValue, medicaidValue, acaCost,
+        return { grossWages: annualIncome, snapValue, medicaidValue, acaCost, acaCSRValue,
                  section8Value, childcareValue, eitcValue, totalEffective };
       }
 
@@ -610,15 +646,20 @@
           'TX SNAP at $44K/4 should be in Ohio-comparable range', txCurrent.snapValue);
         console.assert(txCurrent.acaCost > 800 && txCurrent.acaCost < 2500,
           'TX ACA cost at 133% FPL should be ~3.14% of income', txCurrent.acaCost);
+        // CSR: TX non-expansion family of 4 at 133% FPL is on the marketplace and
+        // qualifies for the 94% AV CSR tier (≤150% FPL) → $1,400/enrollee × 4 = $5,600.
+        console.assert(txCurrent.acaCSRValue === 5600,
+          'TX at 133% FPL on marketplace should get 94% AV CSR ($1,400 × 4)', txCurrent.acaCSRValue);
         console.assert(txCurrent.childcareValue > 10000,
           'TX childcare at $44K (below 200% entry) should be positive for 2 kids', txCurrent.childcareValue);
-        console.assert(txCurrent.totalEffective > 58000 && txCurrent.totalEffective < 72000,
-          'TX total effective at $44K/4 out of range', txCurrent.totalEffective);
+        console.assert(txCurrent.totalEffective > 60000 && txCurrent.totalEffective < 78000,
+          'TX total effective at $44K/4 out of range (now includes CSR uplift)', txCurrent.totalEffective);
         console.log('[CliffCheck] Texas (non-expansion, family-of-4) PASSED', {
           totalEffective: txCurrent.totalEffective,
           snapValue: txCurrent.snapValue,
           medicaidValue: txCurrent.medicaidValue,
           acaCost: txCurrent.acaCost,
+          acaCSRValue: txCurrent.acaCSRValue,
           childcareValue: txCurrent.childcareValue,
         });
 
@@ -685,6 +726,50 @@
         const ncRegress = calcEffectiveTakeHome(44000, 4, { stateCode: 'NC', adultCount: 2 });
         console.assert(ncRegress.totalEffective === ncCurrent.totalEffective,
           'NC scenario must be unchanged after MI addition', { before: ncCurrent.totalEffective, after: ncRegress.totalEffective });
+
+        // Case 8b: ACA CSR three-tier piecewise — HHS NBPP 2026, 45 CFR 156.420.
+        // CSR uplift only applies to marketplace enrollees (not Medicaid, not employer).
+        // TX non-expansion family of 4, $44k = 134% FPL → tier 1 (≤150%): $1,400 × 4 = $5,600.
+        const csr94 = calcACACSR(44000, 4);
+        console.assert(csr94 === 5600,
+          'CSR 94% AV: family of 4 at 134% FPL should be $1,400 × 4 = $5,600', csr94);
+        // Tier 2 (150-200%): TX family of 4 at $60K (182% FPL) → $900 × 4 = $3,600.
+        const csr87 = calcACACSR(60000, 4);
+        console.assert(csr87 === 3600,
+          'CSR 87% AV: family of 4 at 182% FPL should be $900 × 4 = $3,600', csr87);
+        // Tier 3 (200-250%): TX family of 4 at $75K (228% FPL) → $200 × 4 = $800.
+        const csr73 = calcACACSR(75000, 4);
+        console.assert(csr73 === 800,
+          'CSR 73% AV: family of 4 at 228% FPL should be $200 × 4 = $800', csr73);
+        // Above 250% FPL: no CSR.
+        const csrNone = calcACACSR(100000, 4);
+        console.assert(csrNone === 0,
+          'CSR: family of 4 at 304% FPL (above 250%) should be 0', csrNone);
+        // Below 100% FPL: no CSR (Medicaid territory).
+        const csrSubFPL = calcACACSR(10000, 4);
+        console.assert(csrSubFPL === 0,
+          'CSR: family of 4 below 100% FPL should be 0 (Medicaid territory)', csrSubFPL);
+        // Orchestrator gating: OH family of 4 at $44k IS on Medicaid → orchestrator returns 0 acaCSRValue
+        const csrOH = calcEffectiveTakeHome(44000, 4, { stateCode: 'OH', adultCount: 2 });
+        console.assert(csrOH.acaCSRValue === 0,
+          'OH at $44k on Medicaid → orchestrator should suppress CSR', csrOH.acaCSRValue);
+        // Orchestrator gating: TX family of 4 at $44k NOT on Medicaid → orchestrator passes CSR
+        const csrTX = calcEffectiveTakeHome(44000, 4, { stateCode: 'TX', adultCount: 2 });
+        console.assert(csrTX.acaCSRValue === 5600,
+          'TX at $44k on marketplace → orchestrator should pass CSR through', csrTX.acaCSRValue);
+        // Employer-insured short-circuit: even on marketplace-eligible income, CSR suppressed.
+        const csrEmployer = calcEffectiveTakeHome(44000, 4, { stateCode: 'TX', adultCount: 2, employerHealthInsurance: true });
+        console.assert(csrEmployer.acaCSRValue === 0,
+          'TX with employer insurance → orchestrator should suppress CSR', csrEmployer.acaCSRValue);
+        console.log('[CliffCheck] ACA CSR (HHS NBPP 2026) PASSED', {
+          tier94_134pctFPL: csr94,
+          tier87_182pctFPL: csr87,
+          tier73_228pctFPL: csr73,
+          above250pctFPL: csrNone,
+          medicaidGated_OH: csrOH.acaCSRValue,
+          marketplace_TX: csrTX.acaCSRValue,
+          employerGated_TX: csrEmployer.acaCSRValue,
+        });
 
         // Case 9: Federal EITC three-region piecewise — TY2025 IRS Rev. Proc. 2024-40.
         // Phase-in: 2-child MFJ family at $10K earned should be in linear phase-in (40% rate)
@@ -1000,7 +1085,10 @@
         const breakdown = isWorse ? [
           { label: 'SNAP',      delta: Math.round((offered.snapValue      - current.snapValue)      / 12) },
           { label: 'Medicaid',  delta: Math.round((offered.medicaidValue  - current.medicaidValue)  / 12) },
-          ...(opts.employerHealthInsurance ? [] : [{ label: 'ACA cost',  delta: Math.round((offered.acaCost - current.acaCost) / 12) }]),
+          ...(opts.employerHealthInsurance ? [] : [
+            { label: 'ACA cost',     delta: Math.round((offered.acaCost     - current.acaCost)     / 12) },
+            { label: 'ACA CSR',      delta: Math.round((offered.acaCSRValue - current.acaCSRValue) / 12) },
+          ]),
           { label: 'Childcare', delta: Math.round((offered.childcareValue - current.childcareValue) / 12) },
           ...(opts.hasVoucher ? [{ label: 'Section 8', delta: Math.round((offered.section8Value - current.section8Value) / 12) }] : []),
         ].filter(b => b.delta !== 0) : [];
@@ -1294,7 +1382,10 @@
                         `SNAP:      +$${Math.round(r.snapValue).toLocaleString()}`,
                         `Medicaid:  +$${Math.round(r.medicaidValue).toLocaleString()}`,
                         `Childcare: +$${Math.round(r.childcareValue).toLocaleString()}`,
-                        ...(employerHealthInsurance ? [] : [`ACA cost:  −$${Math.round(r.acaCost).toLocaleString()}`]),
+                        ...(employerHealthInsurance ? [] : [
+                          `ACA cost:  −$${Math.round(r.acaCost).toLocaleString()}`,
+                          ...(r.acaCSRValue > 0 ? [`ACA CSR:   +$${Math.round(r.acaCSRValue).toLocaleString()}`] : []),
+                        ]),
                         ...(r.section8Value > 0 ? [`Section 8: +$${Math.round(r.section8Value).toLocaleString()}`] : []),
                         `─────────────────────`,
                         `Total: $${Math.round(r.totalEffective).toLocaleString()}/yr`,
@@ -1345,7 +1436,10 @@
         const chartBreakdown = isWorse ? [
           { label: 'SNAP',      delta: Math.round((offeredResult.snapValue      - currentResult.snapValue)      / 12) },
           { label: 'Medicaid',  delta: Math.round((offeredResult.medicaidValue  - currentResult.medicaidValue)  / 12) },
-          ...(opts.employerHealthInsurance ? [] : [{ label: 'ACA cost', delta: Math.round((offeredResult.acaCost - currentResult.acaCost) / 12) }]),
+          ...(opts.employerHealthInsurance ? [] : [
+            { label: 'ACA cost', delta: Math.round((offeredResult.acaCost     - currentResult.acaCost)     / 12) },
+            { label: 'ACA CSR',  delta: Math.round((offeredResult.acaCSRValue - currentResult.acaCSRValue) / 12) },
+          ]),
           { label: 'Childcare', delta: Math.round((offeredResult.childcareValue - currentResult.childcareValue) / 12) },
           ...(opts.hasVoucher ? [{ label: 'Section 8', delta: Math.round((offeredResult.section8Value - currentResult.section8Value) / 12) }] : []),
         ].filter(b => b.delta !== 0) : [];
@@ -1429,7 +1523,7 @@
           const current = calcEffectiveTakeHome(Number(currentIncome), fs, opts);
           const offered = calcEffectiveTakeHome(Number(offeredIncome), fs, opts);
           const benefitValue = current.snapValue + current.medicaidValue
-            + current.section8Value + current.childcareValue - current.acaCost;
+            + current.section8Value + current.childcareValue + current.acaCSRValue - current.acaCost;
           const diff = offered.totalEffective - current.totalEffective;
           const data = getCliffChartData(fs, opts);
           let safeExit = null;

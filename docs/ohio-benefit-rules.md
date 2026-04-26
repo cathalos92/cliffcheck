@@ -1,5 +1,5 @@
 # Ohio Benefit Program Rules — FY2026
-> Last reviewed: task-79 — 25-04-2026
+> Last reviewed: task-87 — 26-04-2026
 
 Research document for the CliffCheck benefit calculation engine. Covers Ohio-specific rules for FY2026 with sources. All figures apply to the 48 contiguous states unless noted.
 
@@ -190,6 +190,28 @@ The 400% FPL cliff ($132K) is above Keisha's relevant income range. The relevant
 - Above $45,540: must buy ACA marketplace coverage
 - At $54,000 income: family of 4 is at 163% FPL → expected contribution ≈ 5.6% of income ≈ $3,024/year for benchmark premium; PTC = $25,200 - $3,024 = $22,176 → net cost ~$3,024/year
 - At $70,000: 212% FPL → expected contribution ≈ 7.0% = $4,900/year; PTC = $25,200 - $4,900 = $20,300 → net cost ~$4,900/year
+
+### Cost-Sharing Reductions (CSR) — Silver Plan Below 250% FPL
+**Source:** HHS Notice of Benefit and Payment Parameters 2026 — 45 CFR 156.420
+**Retrieved:** 2026-04-26
+
+CSR is a **separate subsidy from PTC** that reduces deductibles, copays, and out-of-pocket maximums for Silver-plan enrollees below 250% FPL. Unlike PTC (which lowers monthly premium), CSR lowers what the household pays when they actually use care. The CSR uplift makes the same Silver plan behave like a Gold/Platinum plan at no extra premium cost.
+
+| FPL Range | Silver Plan AV | Effective Annual Value (per enrollee, KFF national avg) |
+|---|---|---|
+| ≤150% FPL | 94% | ~$1,400 |
+| 150–200% FPL | 87% | ~$900 |
+| 200–250% FPL | 73% | ~$200 |
+| > 250% FPL | 70% (base) | $0 (no CSR) |
+
+**CliffCheck modelling:** `calcACACSR(annualIncome, familySize)` returns the per-enrollee tier value × familySize. Eligibility gated by `calcEffectiveTakeHome` to the same conditions as PTC (not on Medicaid, no employer coverage). Surfaced in the breakdown as a separate "ACA CSR" line so users see the cost-sharing benefit distinctly from the premium subsidy.
+
+**Modelling simplifications (documented):**
+- Per-enrollee dollar values are KFF national averages — does not vary by age, region, or actual utilization
+- Silver plan assumed (federal benchmark default for CSR; only Silver plans carry CSR variants)
+- Native American CSR (zero cost-sharing at any income) not modelled
+
+**Demo impact for Ohio ($44k/4):** Ohio family of 4 at $44k is at 134% FPL → on Medicaid (expansion) → CSR=0 (orchestrator suppresses CSR for Medicaid-eligible). The OH demo numbers are unchanged. CSR materially affects non-expansion states: a Texas family of 4 at $44k receives $5,600 in CSR effective value ($1,400 × 4) on top of the PTC.
 
 ### Ohio-Specific Notes
 - Ohio did not expand state-based PTC enhancements when federal ones expired
