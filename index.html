@@ -5,6 +5,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>CliffCheck — Benefits Cliff Navigator</title>
     <meta name="description" content="See the hidden math that keeps families stuck. Find out if a raise actually makes you poorer." />
+    <!-- ── Content Security Policy — defence-in-depth on top of SRI (task-69) ──
+         'unsafe-inline' on script-src is required because Babel transpiles JSX in inline
+         <script type="text/babel"> blocks; nonce/hash isn't viable without a build step.
+         'unsafe-eval' covers Babel's runtime transpilation (uses Function()/eval).
+         CDN whitelist matches the three origins loaded above: unpkg.com, cdn.jsdelivr.net, esm.sh.
+         (Per task-58 audit finding 7 + task-70 hardening.) -->
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://unpkg.com https://cdn.jsdelivr.net https://esm.sh; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; img-src 'self' data:; font-src 'self' data:; connect-src 'self' https://unpkg.com https://cdn.jsdelivr.net https://esm.sh; base-uri 'self'; form-action 'self'" />
     <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%23F59E0B'/><text x='16' y='22' text-anchor='middle' font-size='18' font-family='system-ui,sans-serif' font-weight='bold' fill='%231C1917'>C</text></svg>" />
     <!-- Open Graph -->
     <meta property="og:type"        content="website" />
