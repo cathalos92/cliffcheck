@@ -886,25 +886,31 @@
             {/* Current wages */}
             <div className="mb-5">
               <label htmlFor="currentIncome" className="block text-sm font-medium text-stone-700 mb-1.5">
-                Current annual wages
+                {Number(adultCount) === 2 ? 'Combined household income' : 'Current annual wages'}
               </label>
               <IncomeSlider
                 id="currentIncome"
                 value={Number(currentIncome)}
                 onChange={v => store.setCell('profile', 'current', 'currentIncome', v)}
               />
+              {Number(adultCount) === 2 && (
+                <p className="text-xs text-stone-500 mt-1.5">Enter the total for both adults.</p>
+              )}
             </div>
 
             {/* Offered wages */}
             <div className="mb-4">
               <label htmlFor="offeredIncome" className="block text-sm font-medium text-stone-700 mb-1.5">
-                Offered or target annual wages
+                {Number(adultCount) === 2 ? 'Combined household income after raise' : 'Offered or target annual wages'}
               </label>
               <IncomeSlider
                 id="offeredIncome"
                 value={Number(offeredIncome)}
                 onChange={v => store.setCell('profile', 'current', 'offeredIncome', v)}
               />
+              {Number(adultCount) === 2 && (
+                <p className="text-xs text-stone-500 mt-1.5">Enter the total for both adults.</p>
+              )}
             </div>
 
             {/* Section 8 voucher */}
