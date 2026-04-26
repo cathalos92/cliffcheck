@@ -10,12 +10,12 @@
     <meta property="og:type"        content="website" />
     <meta property="og:url"         content="https://cliffcheck.com/" />
     <meta property="og:title"       content="CliffCheck — Benefits Cliff Navigator" />
-    <meta property="og:description" content="A $26k raise leaves an Ohio family of 4 $9,800 poorer. See the hidden math. Find your safe-exit income." />
+    <meta property="og:description" content="A $26k raise leaves an Ohio family of 4 ~$9k poorer. See the hidden math. Find your safe-exit income." />
     <meta property="og:image"       content="https://cliffcheck.com/og-image.png" />
     <!-- Twitter / X -->
     <meta name="twitter:card"        content="summary_large_image" />
     <meta name="twitter:title"       content="CliffCheck — Benefits Cliff Navigator" />
-    <meta name="twitter:description" content="A $26k raise leaves an Ohio family of 4 $9,800 poorer. See the hidden math. Find your safe-exit income." />
+    <meta name="twitter:description" content="A $26k raise leaves an Ohio family of 4 ~$9k poorer. See the hidden math. Find your safe-exit income." />
     <meta name="twitter:image"       content="https://cliffcheck.com/og-image.png" />
     <script>globalThis.process = { env: { NODE_ENV: "production" } };</script>
     <!-- ── CDN dependencies — pinned versions + Subresource Integrity (SRI) ──
@@ -582,7 +582,7 @@
         console.assert(current.totalEffective >= 72000 && current.totalEffective <= 78000,
           'Demo current effective out of range', current.totalEffective);
 
-        // netDiff ~-$9,839 — the $26K raise leaves the household ~$10K worse off (EITC also phases out)
+        // netDiff ~-$9,039 — the $26K raise leaves the household ~$9K worse off (EITC phase-out, partial offset by ACA CSR at 200–250% FPL)
         console.assert(netDiff >= -12000 && netDiff <= -6000,
           'Demo netDiff out of range', netDiff);
 
