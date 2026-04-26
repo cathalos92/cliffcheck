@@ -10,12 +10,12 @@
     <meta property="og:type"        content="website" />
     <meta property="og:url"         content="https://cliffcheck.com/" />
     <meta property="og:title"       content="CliffCheck — Benefits Cliff Navigator" />
-    <meta property="og:description" content="A $26k raise leaves an Ohio family of 4 $9,800 poorer. See the hidden math. Find your safe-exit income." />
+    <meta property="og:description" content="A $26k raise leaves an Ohio family of 4 $11,100 poorer. See the hidden math. Find your safe-exit income." />
     <meta property="og:image"       content="https://cliffcheck.com/og-image.png" />
     <!-- Twitter / X -->
     <meta name="twitter:card"        content="summary_large_image" />
     <meta name="twitter:title"       content="CliffCheck — Benefits Cliff Navigator" />
-    <meta name="twitter:description" content="A $26k raise leaves an Ohio family of 4 $9,800 poorer. See the hidden math. Find your safe-exit income." />
+    <meta name="twitter:description" content="A $26k raise leaves an Ohio family of 4 $11,100 poorer. See the hidden math. Find your safe-exit income." />
     <meta name="twitter:image"       content="https://cliffcheck.com/og-image.png" />
     <script>globalThis.process = { env: { NODE_ENV: "production" } };</script>
     <!-- ── CDN dependencies — pinned versions + Subresource Integrity (SRI) ──
@@ -192,6 +192,12 @@
             incomeLimitAnnual: 52500,     // 50% AMI Columbus family of 4
             paymentStandardMonthly: 1750, // 3BR Columbus
           },
+          // State EITC — Ohio Rev. Code §5747.71. 30% of federal EITC, NON-refundable
+          // (caps at OH state income tax liability). For demo persona income range,
+          // OH state tax liability typically <$200/yr, so cap rarely binds — modelled
+          // without cap (proxy assumption documented in task-41 build report).
+          // Source: Tax Foundation 2026 state EITC summary (verified TY2025).
+          stateEitc: { rate: 0.30, refundable: false },
         },
         TX: {
           supported: true,
@@ -233,6 +239,9 @@
             incomeLimitAnnual: 54000,     // 50% AMI Dallas family of 4
             paymentStandardMonthly: 2100, // 3BR Dallas
           },
+          // State EITC — Texas does not levy state income tax and has no state EITC.
+          // Source: Tax Foundation 2026 state EITC summary.
+          stateEitc: { rate: 0, refundable: false },
         },
         NC: {
           supported: true,
@@ -273,6 +282,9 @@
             incomeLimitAnnual: 52000,     // 50% AMI Raleigh family of 4
             paymentStandardMonthly: 1800, // 3BR Raleigh
           },
+          // State EITC — North Carolina repealed its state EITC effective TY2014.
+          // Source: NC General Assembly S.L. 2013-316; Tax Foundation 2026 summary.
+          stateEitc: { rate: 0, refundable: false },
         },
         MI: {
           supported: true,
@@ -313,6 +325,10 @@
             incomeLimitAnnual: 48000,     // 50% AMI Detroit family of 4
             paymentStandardMonthly: 1600, // 3BR Detroit
           },
+          // State EITC — Michigan Working Families Tax Credit. 30% of federal EITC,
+          // refundable. Raised from 6% → 30% in 2023 (HB 4001), retroactive to TY2022.
+          // Source: MI Compiled Laws §206.272; Tax Foundation 2026 summary.
+          stateEitc: { rate: 0.30, refundable: true },
         },
       };
 
@@ -510,6 +526,20 @@
         return p.maxCredit;
       }
 
+      // ── State EITC top-up ──────────────────────────────────────────────────
+      // Stacks additively on top of federal EITC. Modeled as a flat percentage of
+      // the federal credit, with a refundability flag. Non-refundable variants
+      // (OH) cap at the household's state income tax liability — for the demo
+      // persona income range, OH state liability is typically <$200/yr so the
+      // cap rarely binds. Modelled without the cap (proxy assumption documented
+      // in task-41). Full state income tax modelling is task-84.
+      function calcStateEITC(stateCode, federalEitc) {
+        const state = getState(stateCode);
+        const se = state.stateEitc;
+        if (!se || !se.rate) return 0;
+        return federalEitc * se.rate;
+      }
+
       // ── Effective Take-Home ────────────────────────────────────────────────
       // Returns breakdown + totalEffective for any income across all programs.
       // opts: { stateCode, pfccEnrolled, hasVoucher, adultCount, employerHealthInsurance }
@@ -538,13 +568,14 @@
         const section8Value  = calcSection8Value(annualIncome, familySize, calcOpts);
         const childcareValue = calcChildcareSubsidy(annualIncome, familySize, calcOpts);
         const eitcValue      = calcFederalEITC(annualIncome, familySize, calcOpts);
+        const stateEitcValue = calcStateEITC(stateCode, eitcValue);
 
         const totalEffective = Math.round(
-          annualIncome + snapValue + medicaidValue + section8Value + childcareValue + eitcValue - acaCost
+          annualIncome + snapValue + medicaidValue + section8Value + childcareValue + eitcValue + stateEitcValue - acaCost
         );
 
         return { grossWages: annualIncome, snapValue, medicaidValue, acaCost,
-                 section8Value, childcareValue, eitcValue, totalEffective };
+                 section8Value, childcareValue, eitcValue, stateEitcValue, totalEffective };
       }
 
       // ── Cliff Chart Data ───────────────────────────────────────────────────
@@ -569,13 +600,13 @@
         const offered  = calcEffectiveTakeHome(70000, 4, { adultCount: 2 });
         const netDiff  = offered.totalEffective - current.totalEffective;
 
-        // currentEffective ~$74,907 — wages + SNAP($2,184) + Medicaid($4,500) + PFCC($19,920) + EITC($4,303)
-        // (with task-83 federal EITC modelling — TY2025 IRS Rev. Proc. 2024-40)
-        console.assert(current.totalEffective >= 72000 && current.totalEffective <= 78000,
+        // currentEffective ~$76,203 — wages + SNAP($2,189) + Medicaid($4,500) + PFCC($19,920) + EITC($4,303) + OH state EITC ($1,291)
+        // (federal EITC: task-83 TY2025 IRS Rev. Proc. 2024-40; state EITC: task-41 OH Rev. Code §5747.71)
+        console.assert(current.totalEffective >= 73000 && current.totalEffective <= 79000,
           'Demo current effective out of range', current.totalEffective);
 
-        // netDiff ~-$9,839 — the $26K raise leaves the household ~$10K worse off (EITC also phases out)
-        console.assert(netDiff >= -12000 && netDiff <= -6000,
+        // netDiff ~-$11,135 — the $26K raise costs both federal EITC and OH state EITC top-up
+        console.assert(netDiff >= -13000 && netDiff <= -7000,
           'Demo netDiff out of range', netDiff);
 
         // EITC at $44k for 2-child MFJ family should be in phase-out (max $7,152 plateau, falling)
@@ -1034,6 +1065,8 @@
           ...(opts.employerHealthInsurance ? [] : [{ label: 'ACA cost',  delta: Math.round((offered.acaCost - current.acaCost) / 12) }]),
           { label: 'Childcare', delta: Math.round((offered.childcareValue - current.childcareValue) / 12) },
           ...(opts.hasVoucher ? [{ label: 'Section 8', delta: Math.round((offered.section8Value - current.section8Value) / 12) }] : []),
+          { label: 'EITC',      delta: Math.round((offered.eitcValue      - current.eitcValue)      / 12) },
+          { label: 'State EITC', delta: Math.round((offered.stateEitcValue - current.stateEitcValue) / 12) },
         ].filter(b => b.delta !== 0) : [];
 
         return (
@@ -1327,6 +1360,8 @@
                         `Childcare: +$${Math.round(r.childcareValue).toLocaleString()}`,
                         ...(employerHealthInsurance ? [] : [`ACA cost:  −$${Math.round(r.acaCost).toLocaleString()}`]),
                         ...(r.section8Value > 0 ? [`Section 8: +$${Math.round(r.section8Value).toLocaleString()}`] : []),
+                        ...(r.eitcValue > 0 ? [`EITC:      +$${Math.round(r.eitcValue).toLocaleString()}`] : []),
+                        ...(r.stateEitcValue > 0 ? [`State EITC: +$${Math.round(r.stateEitcValue).toLocaleString()}`] : []),
                         `─────────────────────`,
                         `Total: $${Math.round(r.totalEffective).toLocaleString()}/yr`,
                       ];
@@ -1379,6 +1414,8 @@
           ...(opts.employerHealthInsurance ? [] : [{ label: 'ACA cost', delta: Math.round((offeredResult.acaCost - currentResult.acaCost) / 12) }]),
           { label: 'Childcare', delta: Math.round((offeredResult.childcareValue - currentResult.childcareValue) / 12) },
           ...(opts.hasVoucher ? [{ label: 'Section 8', delta: Math.round((offeredResult.section8Value - currentResult.section8Value) / 12) }] : []),
+          { label: 'EITC',      delta: Math.round((offeredResult.eitcValue      - currentResult.eitcValue)      / 12) },
+          { label: 'State EITC', delta: Math.round((offeredResult.stateEitcValue - currentResult.stateEitcValue) / 12) },
         ].filter(b => b.delta !== 0) : [];
 
         return (

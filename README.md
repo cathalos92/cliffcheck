@@ -4,7 +4,7 @@
 
 **Live app:** **https://cliffcheck.com** (phone-first — open on mobile for the intended experience)
 
-A working-class American earning $44k can be offered a $26k raise and end up **$9,800 poorer** in effective take-home — once SNAP, Medicaid, ACA premium tax credits, Section 8, federal EITC, and childcare subsidies phase out together. The math is deliberately hidden by fragmented benefit systems. CliffCheck reveals it.
+A working-class American earning $44k can be offered a $26k raise and end up **$11,100 poorer** in effective take-home — once SNAP, Medicaid, ACA premium tax credits, Section 8, federal + state EITC, and childcare subsidies phase out together. The math is deliberately hidden by fragmented benefit systems. CliffCheck reveals it.
 
 Built for **VibeJam 2026** (April 20–25, 2026) — VibesOS track.
 
