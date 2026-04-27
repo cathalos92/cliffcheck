@@ -1135,6 +1135,39 @@
         },
         afterDatasetsDraw(chart, _args, opts) {
           const { ctx, chartArea, scales } = chart;
+
+          // Program-named cliff thresholds (rendered first so income markers
+          // and cliff callout draw on top). Stone-mid colour, light dash —
+          // present but not noisy.
+          (opts.programCliffs || []).forEach(({ x, label }, idx) => {
+            if (x <= 0 || x > 120000) return;
+            const xpx = scales.x.getPixelForValue(x);
+            ctx.save();
+            ctx.strokeStyle = '#A8A29E'; // stone-400
+            ctx.lineWidth = 1;
+            ctx.setLineDash([2, 4]);
+            ctx.beginPath();
+            ctx.moveTo(xpx, chartArea.top + 22);
+            ctx.lineTo(xpx, chartArea.bottom);
+            ctx.stroke();
+            ctx.setLineDash([]);
+            ctx.font = '10px system-ui,sans-serif';
+            const tw = ctx.measureText(label).width;
+            const pad = 3, lh = 13;
+            // Stagger vertically when two cliffs are within ~$8k of each other
+            // (avoids overlapping labels at 375px width).
+            const prev = (opts.programCliffs || [])[idx - 1];
+            const stagger = prev && Math.abs(x - prev.x) < 8000 ? lh + 2 : 0;
+            const ly = chartArea.bottom - lh - 4 - stagger;
+            const lx = Math.min(Math.max(xpx - tw / 2 - pad, chartArea.left + 2), chartArea.right - tw - pad * 2 - 2);
+            ctx.fillStyle = 'rgba(255,255,255,0.92)';
+            ctx.fillRect(lx, ly, tw + pad * 2, lh);
+            ctx.fillStyle = '#57534E'; // stone-600
+            ctx.fillText(label, lx + pad, ly + lh - 3);
+            ctx.restore();
+          });
+
+          // Income markers (You now / Offer / Safe exit)
           (opts.lines || []).forEach(({ x, color, label, dash }) => {
             if (x < 0 || x > 120000) return;
             const xpx = scales.x.getPixelForValue(x);
@@ -1160,13 +1193,43 @@
             ctx.restore();
           });
 
-          // Cliff drop annotation — biggest single-step loss
+          // Inline dataset labels at the right edge — name each line at rest
+          // so screenshots travel without explanation. Pulled from the
+          // datasets so dataset reordering doesn't drift.
+          const labels = chart.data.datasets.map((ds, i) => ({
+            text: ds._inlineLabel,
+            color: ds._inlineLabelColor || '#78716C',
+            y: ds.data[ds.data.length - 1]?.y,
+          })).filter(l => l.text != null && l.y != null);
+          labels.forEach(({ text, color, y }) => {
+            const ypx = scales.y.getPixelForValue(y);
+            if (ypx < chartArea.top || ypx > chartArea.bottom) return;
+            ctx.save();
+            ctx.font = 'bold 10px system-ui,sans-serif';
+            const tw = ctx.measureText(text).width;
+            const pad = 3, lh = 13;
+            // Anchor inside the right edge — outside risks getting clipped on
+            // narrow viewports. Slight white halo for legibility over the line.
+            const lx = chartArea.right - tw - pad * 2 - 2;
+            const ly = ypx - lh / 2;
+            ctx.fillStyle = 'rgba(255,255,255,0.92)';
+            ctx.fillRect(lx, ly, tw + pad * 2, lh);
+            ctx.fillStyle = color;
+            ctx.fillText(text, lx + pad, ly + lh - 3);
+            ctx.restore();
+          });
+
+          // Cliff drop annotation — biggest single-step loss, named by cause
+          // ("Medicaid cliff: −$4,500"). Self-describing — the chart explains
+          // itself without needing a caption.
           if (opts.cliffAnnotation && opts.cliffAnnotation.dy < -500) {
-            const { midX, bottomY, dropAmt } = opts.cliffAnnotation;
+            const { midX, bottomY, dropAmt, cause } = opts.cliffAnnotation;
             if (midX >= 0 && midX <= 120000) {
               const xpx = scales.x.getPixelForValue(midX);
               const ypx = scales.y.getPixelForValue(bottomY);
-              const label = '−$' + dropAmt.toLocaleString();
+              const label = cause
+                ? `${cause} cliff: −$${dropAmt.toLocaleString()}`
+                : `−$${dropAmt.toLocaleString()}`;
               ctx.save();
               ctx.font = 'bold 11px system-ui,sans-serif';
               const tw = ctx.measureText(label).width;
@@ -1199,9 +1262,12 @@
 
         const opts = { stateCode, adultCount: Number(adultCount), hasVoucher: !!hasSection8Voucher, pfccEnrolled: !!pfccEnrolled, employerHealthInsurance: !!employerHealthInsurance };
 
-        const { pts, currentResult, offeredResult, safeExit, yMin, cliffAnnotation } = useMemo(() => {
+        const { pts, wagePts, currentResult, offeredResult, safeExit, yMin, cliffAnnotation, programCliffs } = useMemo(() => {
           const data = getCliffChartData(Number(familySize), opts);
           const pts  = data.map(d => ({ x: d.income, y: d.totalEffective }));
+          // Gross wages line — straight diagonal y = x. The visual delta between
+          // the two lines IS the benefit value at any given income.
+          const wagePts = data.map(d => ({ x: d.income, y: d.income }));
           const currentResult = calcEffectiveTakeHome(Number(currentIncome), Number(familySize), opts);
           const offeredResult = calcEffectiveTakeHome(Number(offeredIncome), Number(familySize), opts);
 
@@ -1218,25 +1284,62 @@
             }
           }
 
-          // Y-axis min: zoom to relevant range
+          // Y-axis min: zoom to relevant range. Include wage line (≥0) so chart
+          // doesn't truncate the gross wages reference line at low incomes.
           const minY = Math.min(...pts.map(p => p.y));
           const yMin = Math.max(0, Math.floor((minY - 6000) / 5000) * 5000);
 
-          // Biggest single-step cliff drop for annotation
+          // Biggest single-step cliff drop — and identify dominant program cause.
+          // Diff each program independently across the cliff step; whichever
+          // changed most negatively is the named cause. This makes the cliff
+          // self-describing: "Medicaid cliff: −$4,500" not just "−$4,500".
           let cliffAnnotation = null;
           for (let i = 0; i < pts.length - 1; i++) {
             const dy = pts[i+1].y - pts[i].y;
             if (!cliffAnnotation || dy < cliffAnnotation.dy) {
+              const dSnap     = data[i+1].snapValue      - data[i].snapValue;
+              const dMedicaid = data[i+1].medicaidValue  - data[i].medicaidValue;
+              const dCC       = data[i+1].childcareValue - data[i].childcareValue;
+              const dACA      = data[i].acaCost          - data[i+1].acaCost; // cost rises = benefit falls
+              const candidates = [
+                { name: 'SNAP',      delta: dSnap },
+                { name: 'Medicaid',  delta: dMedicaid },
+                { name: 'Childcare', delta: dCC },
+                { name: 'ACA',       delta: dACA },
+              ].filter(c => c.delta < -200);
+              candidates.sort((a, b) => a.delta - b.delta);
+              const cause = candidates[0]?.name || null;
               cliffAnnotation = {
                 midX: (pts[i].x + pts[i+1].x) / 2,
                 bottomY: pts[i+1].y,
                 dy,
                 dropAmt: Math.round(Math.abs(dy)),
+                cause,
               };
             }
           }
 
-          return { pts, currentResult, offeredResult, safeExit, yMin, cliffAnnotation };
+          // Program-named cliff thresholds — derived from engine data, not from
+          // FPL math (".impeccable.md" bans "FPL" as UI text). For each program,
+          // find the income where it drops from positive to zero. Skip programs
+          // not active at the demo's current income (avoids labeling thresholds
+          // for programs the user doesn't have).
+          const programCliffs = [];
+          const programs = [
+            { key: 'medicaidValue',  label: 'Medicaid ends'   },
+            { key: 'snapValue',      label: 'SNAP ends'       },
+            { key: 'childcareValue', label: 'Childcare ends'  },
+          ];
+          for (const { key, label } of programs) {
+            for (let i = 0; i < data.length - 1; i++) {
+              if (data[i][key] > 0 && data[i+1][key] === 0) {
+                programCliffs.push({ x: data[i+1].income, label });
+                break;
+              }
+            }
+          }
+
+          return { pts, wagePts, currentResult, offeredResult, safeExit, yMin, cliffAnnotation, programCliffs };
         }, [stateCode, familySize, currentIncome, offeredIncome, adultCount, hasSection8Voucher, pfccEnrolled, employerHealthInsurance]);
 
         useEffect(() => {
@@ -1252,23 +1355,42 @@
           chartRef.current = new Chart(canvasRef.current, {
             type: 'line',
             data: {
-              datasets: [{
-                data: pts,
-                borderWidth: 2.5,
-                pointRadius: 0,
-                pointHoverRadius: 5,
-                pointHoverBackgroundColor: '#44403C',
-                tension: 0,
-                fill: false,
-                segment: {
-                  borderColor: ctx => {
-                    const dy = ctx.p1.parsed.y - ctx.p0.parsed.y;
-                    if (dy < -200) return '#DC2626'; // cliff drop
-                    if (dy > 500)  return '#16A34A'; // benefit gains
-                    return '#78716C';                // neutral wage growth
+              datasets: [
+                {
+                  // Effective take-home (cliff line — segments coloured by slope)
+                  _inlineLabel: 'Take-home',
+                  _inlineLabelColor: '#1C1917',
+                  data: pts,
+                  borderWidth: 2.5,
+                  pointRadius: 0,
+                  pointHoverRadius: 5,
+                  pointHoverBackgroundColor: '#44403C',
+                  tension: 0,
+                  fill: false,
+                  segment: {
+                    borderColor: ctx => {
+                      const dy = ctx.p1.parsed.y - ctx.p0.parsed.y;
+                      if (dy < -200) return '#DC2626'; // cliff drop
+                      if (dy > 500)  return '#16A34A'; // benefit gains
+                      return '#78716C';                // neutral wage growth
+                    },
                   },
                 },
-              }],
+                {
+                  // Gross wages (reference line — straight diagonal). The vertical
+                  // gap between this line and Take-home IS the benefit value.
+                  _inlineLabel: 'Wages only',
+                  _inlineLabelColor: '#A8A29E',
+                  data: wagePts,
+                  borderColor: '#D6D3D1', // stone-300 — quiet reference
+                  borderWidth: 1.5,
+                  borderDash: [4, 4],
+                  pointRadius: 0,
+                  pointHoverRadius: 0,
+                  tension: 0,
+                  fill: false,
+                },
+              ],
             },
             options: {
               responsive: true,
@@ -1284,6 +1406,9 @@
                   borderColor: '#E7E5E4',
                   borderWidth: 1,
                   padding: 10,
+                  // Suppress hover on the wages reference line — only the
+                  // cliff/take-home line drives the breakdown tooltip.
+                  filter: (ctx) => ctx.datasetIndex === 0,
                   callbacks: {
                     title: ctx => '$' + Number(ctx[0].parsed.x).toLocaleString() + '/yr wages',
                     label: ctx => {
@@ -1303,13 +1428,20 @@
                     },
                   },
                 },
-                cliffChartPlugin: { lines, cliffAnnotation },
+                cliffChartPlugin: { lines, cliffAnnotation, programCliffs },
               },
               scales: {
                 x: {
                   type: 'linear',
                   min: 0,
                   max: 120000,
+                  title: {
+                    display: true,
+                    text: 'Gross wages',
+                    color: '#57534E',
+                    font: { size: 11, family: 'system-ui', weight: '600' },
+                    padding: { top: 6 },
+                  },
                   ticks: {
                     stepSize: 20000,
                     callback: v => '$' + (v / 1000) + 'k',
@@ -1322,6 +1454,13 @@
                 },
                 y: {
                   min: yMin,
+                  title: {
+                    display: true,
+                    text: 'Annual income (after benefits)',
+                    color: '#57534E',
+                    font: { size: 11, family: 'system-ui', weight: '600' },
+                    padding: { bottom: 6 },
+                  },
                   ticks: {
                     callback: v => '$' + (v / 1000).toFixed(0) + 'k',
                     font: { size: 11, family: 'system-ui' },
@@ -1337,7 +1476,7 @@
           });
 
           return () => { if (chartRef.current) chartRef.current.destroy(); };
-        }, [pts, currentIncome, offeredIncome, safeExit, yMin, cliffAnnotation]);
+        }, [pts, wagePts, currentIncome, offeredIncome, safeExit, yMin, cliffAnnotation, programCliffs]);
 
         const diff    = offeredResult.totalEffective - currentResult.totalEffective;
         const isWorse = diff < -500;
@@ -1353,7 +1492,7 @@
         return (
           <div id="cliff-chart" className="mt-4 bg-white rounded-2xl border border-stone-200 p-5">
             <h2 className="text-base font-semibold text-stone-800 mb-3">
-              Benefits cliff — Ohio, {Number(familySize)} {Number(familySize) === 1 ? 'person' : 'people'}
+              Benefits cliff — {STATES[stateCode]?.label || 'Ohio'}, {Number(familySize)} {Number(familySize) === 1 ? 'person' : 'people'}
             </h2>
             <canvas ref={canvasRef} />
 
@@ -1363,9 +1502,13 @@
                 { color: 'bg-blue-600',   label: 'You now' },
                 { color: 'bg-violet-600', label: 'Offer' },
                 ...(safeExit ? [{ color: 'bg-green-600', label: 'Safe exit' }] : []),
-              ].map(({ color, label }) => (
+                { color: 'bg-stone-300',  label: 'Wages only', dashed: true },
+              ].map(({ color, label, dashed }) => (
                 <span key={label} className="flex items-center gap-1.5 text-xs text-stone-500">
-                  <span className={`inline-block w-3 h-0.5 rounded ${color}`} />
+                  <span
+                    className={`inline-block w-3 h-0.5 rounded ${color}`}
+                    style={dashed ? { borderTop: '1.5px dashed #D6D3D1', backgroundColor: 'transparent', height: 0 } : undefined}
+                  />
                   {label}
                 </span>
               ))}
