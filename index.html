@@ -1851,7 +1851,10 @@
         }, [stateCode, familySize, currentIncome, offeredIncome, adultCount, hasSection8Voucher, pfccEnrolled, employerHealthInsurance, matchRate]);
 
         const isWorse = diff < -500;
-        const line1 = `Currently earning ${fmtDollars(Number(currentIncome))}/yr with ${fmtDollars(Math.abs(benefitValue))} in annual benefit value — ${fmtDollars(current.totalEffective)} total effective`;
+        const matchSuffix = (Number(matchRate) || 0) > 0
+          ? `, including a ${matchRate}% employer 401(k) match (${fmtDollars(offered.matchValue)}/yr at the offered salary)`
+          : '';
+        const line1 = `Currently earning ${fmtDollars(Number(currentIncome))}/yr with ${fmtDollars(Math.abs(benefitValue))} in annual benefit value — ${fmtDollars(current.totalEffective)} total effective${matchSuffix}`;
         const line2 = isWorse
           ? `The ${fmtDollars(Number(offeredIncome))} offer would give ${fmtDollars(offered.totalEffective)} total effective — that's ${fmtDollars(Math.abs(diff))} less than today`
           : `The ${fmtDollars(Number(offeredIncome))} offer would give ${fmtDollars(offered.totalEffective)} total effective — ${fmtDollars(diff)} more than today`;
