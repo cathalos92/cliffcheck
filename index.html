@@ -160,6 +160,7 @@
           // Ohio PFCC Childcare Subsidy — Ohio DCY
           // https://childrenandyouth.ohio.gov/for-providers/resources/pfcc
           childcare: {
+            subsidyName: 'PFCC',  // Publicly Funded Child Care
             entryFPL: 1.45,
             exitFPL: 3.00,
             coPayRate: 0.07,     // Effective July 2026
@@ -202,6 +203,7 @@
           // Copay sliding 0–12% based on FPL band; modeled as ~8% average.
           // https://www.twc.texas.gov/programs/child-care
           childcare: {
+            subsidyName: 'CCS',  // Child Care Services
             entryFPL: 2.00,
             exitFPL: 2.85,            // 85% SMI ≈ 285% FPL for family of 4 (approx)
             coPayRate: 0.08,          // sliding average — TWC CCS 2026
@@ -245,6 +247,7 @@
           // Copay sliding 9–10% of gross; modeled as ~10% average.
           // https://ncchildcare.ncdhhs.gov/Home/Work-With-Parents/Financial-Assistance
           childcare: {
+            subsidyName: 'SCCAP',  // Subsidized Child Care Assistance Program
             entryFPL: 2.00,
             exitFPL: 2.85,            // 85% SMI ≈ 285% FPL for family of 4 (approx — see TX note)
             coPayRate: 0.10,          // sliding average — NC SCCAP 2026
@@ -285,6 +288,7 @@
           // Copay sliding with poverty-band waiver; modeled as ~8% average.
           // https://www.michigan.gov/mdhhs/assistance-programs/childcare
           childcare: {
+            subsidyName: 'CDC',  // Child Development and Care scholarship
             entryFPL: 2.00,
             exitFPL: 2.85,            // 85% SMI ≈ 285% FPL for family of 4 (approx — see TX note)
             coPayRate: 0.08,          // sliding average — MDHHS CDC 2026
@@ -972,7 +976,9 @@
                     onChange={e => store.setCell('profile', 'current', 'pfccEnrolled', e.target.checked)}
                     className="w-5 h-5 rounded border-stone-300 accent-amber-500"
                   />
-                  <span className="text-sm text-stone-700">Already enrolled in subsidised childcare (PFCC)</span>
+                  <span className="text-sm text-stone-700">
+                    Already enrolled in subsidised childcare ({STATES[stateCode]?.childcare?.subsidyName || 'subsidy'})
+                  </span>
                 </label>
               </div>
             )}
