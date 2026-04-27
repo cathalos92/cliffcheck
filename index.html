@@ -592,7 +592,9 @@
       // $44K is the demo wage where SNAP + Medicaid + PFCC childcare are all
       // active simultaneously (above $54K, most Ohio benefits have already
       // thresholded out).
-      (function validateDemoScenario() {
+      // Gated to dev/debug contexts — production page loads skip this overhead.
+      const __isDevHost = location.hostname === 'localhost' || location.hostname === '127.0.0.1' || location.search.includes('debug=1');
+      if (__isDevHost) (function validateDemoScenario() {
         // Case 1: Two-adult, two-child household (default scenario)
         const current = calcEffectiveTakeHome(44000, 4, { adultCount: 2 });
         const offered  = calcEffectiveTakeHome(70000, 4, { adultCount: 2 });
