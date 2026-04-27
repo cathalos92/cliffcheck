@@ -84,7 +84,7 @@ That's it. The app runs entirely in the browser.
 
 CliffCheck was built with [Claude Code](https://claude.com/claude-code) (Anthropic) as the primary development tool, using the **PAPI** project-management methodology (planning → building → reviewing in cycles). Cycle history, architecture decisions, and dogfood observations are tracked in [`CLAUDE.md`](CLAUDE.md), [`PRODUCT_BRIEF.md`](PRODUCT_BRIEF.md), and [`DOGFOOD_LOG.md`](DOGFOOD_LOG.md).
 
-The benefit calculation rules (SNAP, Medicaid, ACA, Section 8, PFCC childcare) were sourced from the cited federal and state government documents and verified against published FY2026 thresholds — see the source links in `index.html` and [`docs/ohio-benefit-rules.md`](docs/ohio-benefit-rules.md).
+The benefit calculation rules (SNAP, Medicaid, ACA, Section 8, state childcare subsidies) were sourced from the cited federal and state government documents and verified against published FY2026 thresholds — see the source links in `index.html` and the per-state rule docs in [`docs/state-rules/`](docs/state-rules/) (Ohio is the reference build at [`docs/state-rules/oh.md`](docs/state-rules/oh.md); TX/NC/MI rule docs to follow).
 
 ## Repo
 
