@@ -8,11 +8,24 @@
 |----------|--------|--------------|----------|
 | *Add architecture docs here* | | | |
 
+## Operations
+
+| Document | Status | Last Updated | Consumer |
+|----------|--------|--------------|----------|
+| [data-refresh-checklist.md](data-refresh-checklist.md) | Active | 2026-04-27 | builder, planner |
+
+## State Rules
+
+> Per-state benefit rule docs. Convention: `docs/state-rules/{state-code}.md` (lowercase 2-letter code). Each doc covers SNAP, Medicaid, ACA, Section 8, state childcare subsidy with primary-source URLs and FY2026 retrieval dates.
+
+| Document | Status | Last Updated | Consumer |
+|----------|--------|--------------|----------|
+| [state-rules/oh.md](state-rules/oh.md) | Active | 2026-04-27 | builder, planner |
+
 ## Research
 
 | Document | Status | Last Updated | Consumer |
 |----------|--------|--------------|----------|
-| [ohio-benefit-rules.md](ohio-benefit-rules.md) | Active | 2026-04-21 | builder, planner |
 | [research/all-states-findings.md](research/all-states-findings.md) | Draft | 2026-04-22 | planner, builder |
 
 ## Reference

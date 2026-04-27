@@ -1,5 +1,5 @@
 # Ohio Benefit Program Rules — FY2026
-> Last reviewed: task-87 — 26-04-2026
+> Last reviewed: task-43 — 27-04-2026
 
 Research document for the CliffCheck benefit calculation engine. Covers Ohio-specific rules for FY2026 with sources. All figures apply to the 48 contiguous states unless noted.
 
