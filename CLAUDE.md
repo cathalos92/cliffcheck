@@ -5,7 +5,7 @@ Benefits Cliff Navigator — a phone-first web app revealing the hidden math beh
 
 **Theme:** "Escape the permanent underclass"
 **Track:** VibesOS (React + TinyBase + Tailwind, single HTML file)
-**Deploy:** GitHub Pages — `https://cathalos92.github.io/cliffcheck/` (canonical public URL)
+**Deploy:** GitHub Pages (custom domain) — `https://cliffcheck.com/` (canonical public URL; old `cathalos92.github.io/cliffcheck` 301-redirects)
 **Repo:** github.com/cathalos92/cliffcheck (open source, required by rules)
 
 ## Stack (VibesOS)
