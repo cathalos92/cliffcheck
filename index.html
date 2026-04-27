@@ -812,33 +812,6 @@
         const csrTX = calcEffectiveTakeHome(44000, 4, { stateCode: 'TX', adultCount: 2 });
         console.assert(csrTX.acaCSRValue === 5600,
           'TX at $44k on marketplace → orchestrator should pass CSR through', csrTX.acaCSRValue);
-
-        // Case 9: OH state income tax (HB 96 2025, flat 2.75% above $26,050).
-        // $44k → (44000 - 26050) × 0.0275 = $494.
-        const ohTaxAt44k = calcStateIncomeTax(44000, { stateCode: 'OH' });
-        console.assert(ohTaxAt44k === 494,
-          'OH state tax at $44k should be $494 ((44000-26050)*0.0275)', ohTaxAt44k);
-        // $70k → (70000 - 26050) × 0.0275 = $1,209.
-        const ohTaxAt70k = calcStateIncomeTax(70000, { stateCode: 'OH' });
-        console.assert(ohTaxAt70k === 1209,
-          'OH state tax at $70k should be $1,209 ((70000-26050)*0.0275)', ohTaxAt70k);
-        // Below the no-tax floor → 0.
-        const ohTaxBelowFloor = calcStateIncomeTax(20000, { stateCode: 'OH' });
-        console.assert(ohTaxBelowFloor === 0,
-          'OH state tax below $26,050 should be 0', ohTaxBelowFloor);
-        // Other states have no incomeTax block → 0.
-        const txTaxAt70k = calcStateIncomeTax(70000, { stateCode: 'TX' });
-        console.assert(txTaxAt70k === 0,
-          'TX has no state income tax → should be 0', txTaxAt70k);
-        const ncTaxAt70k = calcStateIncomeTax(70000, { stateCode: 'NC' });
-        console.assert(ncTaxAt70k === 0,
-          'NC not yet modelled → should be 0', ncTaxAt70k);
-        const miTaxAt70k = calcStateIncomeTax(70000, { stateCode: 'MI' });
-        console.assert(miTaxAt70k === 0,
-          'MI not yet modelled → should be 0', miTaxAt70k);
-        console.log('[CliffCheck] OH state tax (HB 96 flat 2.75%) PASSED', {
-          ohTaxAt44k, ohTaxAt70k, ohTaxBelowFloor, txTaxAt70k, ncTaxAt70k, miTaxAt70k,
-        });
         // Employer-insured short-circuit: even on marketplace-eligible income, CSR suppressed.
         const csrEmployer = calcEffectiveTakeHome(44000, 4, { stateCode: 'TX', adultCount: 2, employerHealthInsurance: true });
         console.assert(csrEmployer.acaCSRValue === 0,
@@ -875,6 +848,33 @@
           plateau_2childMFJ_at25k: eitcPlateau,
           zero_2childMFJ_at65k: eitcZero,
           childless_MFJ_at20k: eitcChildless,
+        });
+
+        // Case 10: OH state income tax (HB 96 2025, flat 2.75% above $26,050).
+        // $44k → (44000 - 26050) × 0.0275 = $494.
+        const ohTaxAt44k = calcStateIncomeTax(44000, { stateCode: 'OH' });
+        console.assert(ohTaxAt44k === 494,
+          'OH state tax at $44k should be $494 ((44000-26050)*0.0275)', ohTaxAt44k);
+        // $70k → (70000 - 26050) × 0.0275 = $1,209.
+        const ohTaxAt70k = calcStateIncomeTax(70000, { stateCode: 'OH' });
+        console.assert(ohTaxAt70k === 1209,
+          'OH state tax at $70k should be $1,209 ((70000-26050)*0.0275)', ohTaxAt70k);
+        // Below the no-tax floor → 0.
+        const ohTaxBelowFloor = calcStateIncomeTax(20000, { stateCode: 'OH' });
+        console.assert(ohTaxBelowFloor === 0,
+          'OH state tax below $26,050 should be 0', ohTaxBelowFloor);
+        // Other states have no incomeTax block → 0.
+        const txTaxAt70k = calcStateIncomeTax(70000, { stateCode: 'TX' });
+        console.assert(txTaxAt70k === 0,
+          'TX has no state income tax → should be 0', txTaxAt70k);
+        const ncTaxAt70k = calcStateIncomeTax(70000, { stateCode: 'NC' });
+        console.assert(ncTaxAt70k === 0,
+          'NC not yet modelled → should be 0', ncTaxAt70k);
+        const miTaxAt70k = calcStateIncomeTax(70000, { stateCode: 'MI' });
+        console.assert(miTaxAt70k === 0,
+          'MI not yet modelled → should be 0', miTaxAt70k);
+        console.log('[CliffCheck] OH state tax (HB 96 flat 2.75%) PASSED', {
+          ohTaxAt44k, ohTaxAt70k, ohTaxBelowFloor, txTaxAt70k, ncTaxAt70k, miTaxAt70k,
         });
       })();
     </script>
