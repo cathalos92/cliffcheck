@@ -877,10 +877,19 @@
                         : 'bg-white border-stone-200 text-stone-700 hover:border-amber-300'
                     }`}
                   >
-                    {n === 1 ? '1 — single parent' : '2 — two adults'}
+                    {n === 1 ? '1 adult' : '2 adults'}
                   </button>
                 ))}
               </div>
+              <p className="text-xs text-stone-400 mt-1.5">
+                Number of children = family size − adults
+                {(() => {
+                  const kids = Math.max(0, Number(familySize) - Number(adultCount));
+                  if (kids === 0) return ' (no children)';
+                  if (kids === 1) return ' (1 child)';
+                  return ` (${kids} children)`;
+                })()}
+              </p>
             </div>
 
             {/* Current wages */}
@@ -936,8 +945,8 @@
               </label>
             </div>
 
-            {/* PFCC enrolled — Ohio only, families with children */}
-            {Number(familySize) > 1 && (
+            {/* Childcare subsidy enrolled — only when household has at least 1 child */}
+            {Math.max(0, Number(familySize) - Number(adultCount)) > 0 && (
               <div>
                 <label className="flex items-center gap-3 cursor-pointer">
                   <input
