@@ -302,7 +302,24 @@
       };
 
       function getState(stateCode) {
-        return STATES[stateCode] || STATES.OH;
+        const state = STATES[stateCode];
+        if (state) return state;
+        // Defence-in-depth fallback. The UnsupportedStateMessage component
+        // (rendered ahead of the calculator surfaces) ensures users never
+        // SEE these fallback numbers, but engine callers (e.g. validateDemo
+        // assertions, future tests) still get a coherent state object.
+        if (globalThis.process?.env?.NODE_ENV !== 'production') {
+          console.warn(`[CliffCheck] getState fallback: unsupported stateCode "${stateCode}", returning OH`);
+        }
+        return STATES.OH;
+      }
+
+      // Whether a stateCode resolves to a fully-supported state. UI consumers
+      // that render dollar values must gate on this to avoid showing OH
+      // numbers for an unsupported state code (deeplinks, persisted profiles
+      // from a removed state, manual URL params).
+      function isSupportedState(stateCode) {
+        return !!(STATES[stateCode] && STATES[stateCode].supported);
       }
 
       // Supported states for UI selector, ordered by code for predictable menu order.
@@ -1719,6 +1736,30 @@
         );
       }
 
+      // ── UnsupportedStateMessage ──
+      // Rendered in place of the calculator surfaces when the persisted
+      // stateCode isn't one of the supported states (typo, deeplink, removed
+      // state). Honest > confidently wrong: never silently render OH numbers
+      // for a non-OH state code.
+      function UnsupportedStateMessage() {
+        const stateCode = useCell('profile', 'current', 'stateCode') ?? DEFAULTS.stateCode;
+        const supported = getSupportedStates();
+        return (
+          <div className="mt-4 bg-white rounded-2xl border border-amber-200 p-5">
+            <h2 className="text-base font-semibold text-stone-800 mb-2">
+              We don't have data for {stateCode || 'this state'} yet
+            </h2>
+            <p className="text-sm text-stone-600 leading-relaxed mb-3">
+              CliffCheck currently models benefit cliffs for: {supported.map(s => s.label).join(', ')}.
+              Pick one of the supported states above to see your cliff chart.
+            </p>
+            <p className="text-xs text-stone-400">
+              More states are being added — benefit rules vary materially by state, so we ship them one at a time after primary-source verification.
+            </p>
+          </div>
+        );
+      }
+
       // ── App ──
       function App() {
         useEffect(() => {
@@ -1730,32 +1771,49 @@
 
         return (
           <Provider store={store}>
-            <div className="min-h-screen bg-stone-50">
-              <TrustBadge />
-              <div className="max-w-5xl mx-auto px-4 pt-4 pb-6">
-                <div className="text-center pt-4 pb-2">
-                  <h1 className="text-2xl font-extrabold text-stone-900">CliffCheck</h1>
-                  <p className="text-sm text-stone-500 mt-1">
-                    See the real cost of a raise — including what you'd lose in benefits
-                  </p>
-                  <DemoButton />
-                </div>
-                <div className="md:grid md:grid-cols-[2fr_3fr] md:gap-6 md:items-start mt-2">
-                  <div>
-                    <ProfileForm />
-                    <LiveSummaryStrip />
-                  </div>
-                  <div>
-                    <CliffChart />
-                    <LiveSummary />
-                  </div>
-                </div>
-                <ManagerBrief />
-                <TipJarCard />
-                <SourcesFooter />
-              </div>
-            </div>
+            <Shell />
           </Provider>
+        );
+      }
+
+      // Shell reads the persisted stateCode and gates the calculator surfaces
+      // on it, so an unsupported code shows the UnsupportedStateMessage in
+      // place of the chart/summary/brief instead of silently rendering OH.
+      function Shell() {
+        const stateCode = useCell('profile', 'current', 'stateCode') ?? DEFAULTS.stateCode;
+        const supported = isSupportedState(stateCode);
+        return (
+          <div className="min-h-screen bg-stone-50">
+            <TrustBadge />
+            <div className="max-w-5xl mx-auto px-4 pt-4 pb-6">
+              <div className="text-center pt-4 pb-2">
+                <h1 className="text-2xl font-extrabold text-stone-900">CliffCheck</h1>
+                <p className="text-sm text-stone-500 mt-1">
+                  See the real cost of a raise — including what you'd lose in benefits
+                </p>
+                <DemoButton />
+              </div>
+              <div className="md:grid md:grid-cols-[2fr_3fr] md:gap-6 md:items-start mt-2">
+                <div>
+                  <ProfileForm />
+                  {supported && <LiveSummaryStrip />}
+                </div>
+                <div>
+                  {supported ? (
+                    <>
+                      <CliffChart />
+                      <LiveSummary />
+                    </>
+                  ) : (
+                    <UnsupportedStateMessage />
+                  )}
+                </div>
+              </div>
+              {supported && <ManagerBrief />}
+              <TipJarCard />
+              <SourcesFooter />
+            </div>
+          </div>
         );
       }
 
