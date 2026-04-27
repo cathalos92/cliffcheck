@@ -215,3 +215,27 @@ Pausing PAPI-mediated planning entirely. Two options surviving:
 
 - **Source provenance is the next credibility lever.** The task-54 audit confirmed ~60% of state benefit constants currently cite secondary aggregators (KFF, snapscreener, healthinsurance.org). For an app whose entire value proposition is "the math is real", upgrading to primary agency citations (USDA FNS, healthcare.gov Plan Finder, HUD FMR tables) is the highest-leverage Cycle 11 P1. Already scoped in the audit.
 
+---
+
+## Post-Cycle 12 Session — 2026-04-27
+
+### Friction Points
+
+- **P1 HIGH — Auto-release tagged v0.12.0 without merging cycle branches into main.** The final `review_submit accept` triggered an auto-release that committed CHANGELOG.md and pushed `v0.12.0` tag — but the three cycle branches (`feat/cycle-12-benefit-engine`, `feat/cycle-12-ui`, `feat/cycle-12-core`) were never merged. Main got a release commit with no actual code changes. Caught manually by checking `git log` after the announcement; merged each branch by hand (one conflict on `docs/state-rules/oh.md` freshness header, resolved keeping task-43). If the user trusted the "auto-released v0.12.0" message and didn't check git, the production deploy would silently lag by an entire cycle. **Recommendation:** auto-release should either (a) merge all task-Done cycle branches into main before tagging, (b) refuse to release while unmerged cycle branches exist, or (c) require manual confirmation before pushing the release commit. The shared-cycle-branch convention amplifies this — instead of one missed merge, three were missed.
+
+- **P3 LOW — `build_execute` report submission silently dropped multi-paragraph fields on long prompts.** Three retries on task-87 to get `discovered_issues` through the transport. Error message said "discovered_issues missing" but the parameter was being sent. Eventually went through after content was shortened. Likely an XML namespace ambiguity (bare `<parameter>` vs `<parameter>`) when the surrounding prompt is large. A more specific error pointing at the serialisation issue would save loops.
+
+### Methodology Signals
+
+- **Pairing accuracy + legibility tasks in the same cycle compounded.** Cycle 12's two P1s — task-87 (ACA CSR engine) and task-88 (chart legend overhaul) — were intentionally sequenced so the chart visually reflects the new accuracy. CSR added a new value type (`acaCSRValue`) as a separate breakdown line; the chart legend immediately surfaced "Medicaid ends" / "SNAP ends" / "Childcare ends" thresholds derived from engine data. Pattern: when an engine accuracy task changes what the cliff visualisation expresses, queue a UI legibility task in the same cycle so the share-screenshot moment lands clean. Reverse order would have shipped a more accurate cliff with a chart that obscured the change.
+
+- **Single-theme cycles ran 100% on first review with all estimates matching actual.** 8/8 tasks accepted, 0 request-changes, all XS/S accurate. Cycle theme ("AD-7 accuracy + UX legibility") meant 7 of 8 tasks touched `index.html` or `docs/`, so the build context stayed warm across the cycle. The two exceptions (task-87 effort match, task-89 over-scoped) were both intentional planner decisions, not estimation drift. Continues the pattern from Cycles 10–11: theme coherence > task-count optimisation.
+
+- **`.impeccable.md` design-brain caught a handoff-vs-design conflict.** task-88's handoff said label thresholds as "138% FPL / 200% FPL". `.impeccable.md` bans "FPL" as a UI word. Resolved by deriving thresholds from engine data (program-named: "Medicaid ends" / "SNAP ends" / "Childcare ends") rather than FPL math. The design brain takes precedence over handoffs, by project convention. Worth reinforcing in the planner: when generating UI handoffs, scan the proposed labels against `.impeccable.md` banned words before locking the scope.
+
+### Commercial / Roadmap Signals
+
+- **CSR uplift made the TX persona materially viable.** Texas demo at $44k/4 jumped from ~$65k effective to $71,176 with $5,600 of CSR effective value (94% AV tier × 4 enrollees). Non-expansion states are where the marketplace stack matters most — and where the previous engine was undercounting the most. The cliff narrative for OH (which uses Medicaid → CSR=0 → demo unchanged) stays the same, but the comparative narrative across the 4 states is now more credible: TX is a real ACA story, not a stripped-down OH.
+
+- **Hero stat shifted to "~$9k poorer" for stability across calc improvements.** OH netDiff softened from −$9,839 to −$9,039 with CSR (offered $70k income picks up $800 CSR at 200-250% tier). Updated marketing copy (README / OG meta / PRODUCT_BRIEF) to round figure rather than the exact post-cycle number. Reasoning: the exact figure shifts every cycle as accuracy work continues; "~$9k" is share-stable. Pattern for future: marketing copy uses round numbers, code comments + audit docs use exact figures, and the gap is the buffer absorbing future calc refinements.
+
