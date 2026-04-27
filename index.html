@@ -192,6 +192,22 @@
             paymentStandardMonthly: 1750, // 3BR Columbus
             tenantShareRate: 0.30,
           },
+          // Ohio state income tax — flat tax post-HB 96 (2025).
+          // Source: Policy Matters Ohio "The Great Ohio Tax Shift, 2026"
+          //  https://policymattersohio.org/research/the-great-ohio-tax-shift-2026/
+          // Source: Tax Foundation 2026 State Tax Changes
+          //  https://taxfoundation.org/research/all/state/2026-state-tax-changes/
+          // Retrieved: 2026-04-27.
+          // Structure: 0% on Ohio AGI ≤ $26,050; 2.75% flat on amount above $26,050.
+          // Single threshold for all filing statuses (frozen since 2021; indexing
+          // suspended through 2026). NOT a cliff — marginal kick-in only.
+          // Modelled on gross wages as a proxy for Ohio AGI (no itemised deductions
+          // captured in user input). Local/municipal income taxes (RITA, CCA) are
+          // out of scope — they vary by city and need explicit user input.
+          incomeTax: {
+            noTaxFloor: 26050,
+            flatRate: 0.0275,
+          },
         },
         TX: {
           supported: true,
@@ -542,6 +558,22 @@
         return p.maxCredit;
       }
 
+      // ── State Income Tax ───────────────────────────────────────────────────
+      // Per-state flat-tax model, gated on STATES.XX.incomeTax presence. States
+      // without an incomeTax block return 0 (TX has no income tax; NC/MI use
+      // bracketed structures not yet modelled). Currently only OH is wired up.
+      // Modelled on gross wages as a proxy for state AGI (user input doesn't
+      // capture itemised deductions). Returned as a positive owed amount; the
+      // orchestrator subtracts from totalEffective alongside ACA premium cost.
+      function calcStateIncomeTax(annualIncome, opts) {
+        const { stateCode = 'OH' } = opts || {};
+        const state = getState(stateCode);
+        const tax = state.incomeTax;
+        if (!tax) return 0;
+        if (annualIncome <= tax.noTaxFloor) return 0;
+        return Math.round((annualIncome - tax.noTaxFloor) * tax.flatRate);
+      }
+
       // ── Effective Take-Home ────────────────────────────────────────────────
       // Returns breakdown + totalEffective for any income across all programs.
       // opts: { stateCode, pfccEnrolled, hasVoucher, adultCount, employerHealthInsurance }
@@ -567,13 +599,14 @@
         const section8Value  = calcSection8Value(annualIncome, familySize, calcOpts);
         const childcareValue = calcChildcareSubsidy(annualIncome, familySize, calcOpts);
         const eitcValue      = calcFederalEITC(annualIncome, familySize, calcOpts);
+        const stateTaxOwed   = calcStateIncomeTax(annualIncome, calcOpts);
 
         const totalEffective = Math.round(
-          annualIncome + snapValue + medicaidValue + section8Value + childcareValue + eitcValue + acaCSRValue - acaCost
+          annualIncome + snapValue + medicaidValue + section8Value + childcareValue + eitcValue + acaCSRValue - acaCost - stateTaxOwed
         );
 
         return { grossWages: annualIncome, snapValue, medicaidValue, acaCost, acaCSRValue,
-                 section8Value, childcareValue, eitcValue, totalEffective };
+                 section8Value, childcareValue, eitcValue, stateTaxOwed, totalEffective };
       }
 
       // ── Cliff Chart Data ───────────────────────────────────────────────────
@@ -598,12 +631,13 @@
         const offered  = calcEffectiveTakeHome(70000, 4, { adultCount: 2 });
         const netDiff  = offered.totalEffective - current.totalEffective;
 
-        // currentEffective ~$74,907 — wages + SNAP($2,184) + Medicaid($4,500) + PFCC($19,920) + EITC($4,303)
-        // (with task-83 federal EITC modelling — TY2025 IRS Rev. Proc. 2024-40)
+        // currentEffective ~$74,413 — wages + SNAP($2,184) + Medicaid($4,500) + PFCC($19,920) + EITC($4,303) − OH state tax ($494)
+        // (with task-83 federal EITC modelling — TY2025 IRS Rev. Proc. 2024-40, task-84 OH flat tax HB 96 2025)
         console.assert(current.totalEffective >= 72000 && current.totalEffective <= 78000,
           'Demo current effective out of range', current.totalEffective);
 
-        // netDiff ~-$9,039 — the $26K raise leaves the household ~$9K worse off (EITC phase-out, partial offset by ACA CSR at 200–250% FPL)
+        // netDiff ~-$9,754 — the $26K raise leaves the household ~$10K worse off
+        // (EITC phase-out + larger OH tax bill at offered, partial offset by ACA CSR at 200–250% FPL)
         console.assert(netDiff >= -12000 && netDiff <= -6000,
           'Demo netDiff out of range', netDiff);
 
@@ -778,6 +812,33 @@
         const csrTX = calcEffectiveTakeHome(44000, 4, { stateCode: 'TX', adultCount: 2 });
         console.assert(csrTX.acaCSRValue === 5600,
           'TX at $44k on marketplace → orchestrator should pass CSR through', csrTX.acaCSRValue);
+
+        // Case 9: OH state income tax (HB 96 2025, flat 2.75% above $26,050).
+        // $44k → (44000 - 26050) × 0.0275 = $494.
+        const ohTaxAt44k = calcStateIncomeTax(44000, { stateCode: 'OH' });
+        console.assert(ohTaxAt44k === 494,
+          'OH state tax at $44k should be $494 ((44000-26050)*0.0275)', ohTaxAt44k);
+        // $70k → (70000 - 26050) × 0.0275 = $1,209.
+        const ohTaxAt70k = calcStateIncomeTax(70000, { stateCode: 'OH' });
+        console.assert(ohTaxAt70k === 1209,
+          'OH state tax at $70k should be $1,209 ((70000-26050)*0.0275)', ohTaxAt70k);
+        // Below the no-tax floor → 0.
+        const ohTaxBelowFloor = calcStateIncomeTax(20000, { stateCode: 'OH' });
+        console.assert(ohTaxBelowFloor === 0,
+          'OH state tax below $26,050 should be 0', ohTaxBelowFloor);
+        // Other states have no incomeTax block → 0.
+        const txTaxAt70k = calcStateIncomeTax(70000, { stateCode: 'TX' });
+        console.assert(txTaxAt70k === 0,
+          'TX has no state income tax → should be 0', txTaxAt70k);
+        const ncTaxAt70k = calcStateIncomeTax(70000, { stateCode: 'NC' });
+        console.assert(ncTaxAt70k === 0,
+          'NC not yet modelled → should be 0', ncTaxAt70k);
+        const miTaxAt70k = calcStateIncomeTax(70000, { stateCode: 'MI' });
+        console.assert(miTaxAt70k === 0,
+          'MI not yet modelled → should be 0', miTaxAt70k);
+        console.log('[CliffCheck] OH state tax (HB 96 flat 2.75%) PASSED', {
+          ohTaxAt44k, ohTaxAt70k, ohTaxBelowFloor, txTaxAt70k, ncTaxAt70k, miTaxAt70k,
+        });
         // Employer-insured short-circuit: even on marketplace-eligible income, CSR suppressed.
         const csrEmployer = calcEffectiveTakeHome(44000, 4, { stateCode: 'TX', adultCount: 2, employerHealthInsurance: true });
         console.assert(csrEmployer.acaCSRValue === 0,
@@ -1123,6 +1184,7 @@
           ]),
           { label: 'Childcare', delta: Math.round((offered.childcareValue - current.childcareValue) / 12) },
           ...(opts.hasVoucher ? [{ label: 'Section 8', delta: Math.round((offered.section8Value - current.section8Value) / 12) }] : []),
+          { label: 'State tax', delta: Math.round((offered.stateTaxOwed   - current.stateTaxOwed)   / 12) },
         ].filter(b => b.delta !== 0) : [];
 
         return (
@@ -1161,8 +1223,9 @@
               <div className="mt-4 pt-4 border-t border-stone-100 space-y-1.5">
                 <p className="text-xs font-medium text-stone-400 uppercase tracking-wide mb-2">Benefit changes (monthly)</p>
                 {breakdown.map(({ label, delta }) => {
-                  const isLoss = label === 'ACA cost' ? delta > 0 : delta < 0;
-                  const sign   = label === 'ACA cost' ? (delta > 0 ? '+' : '−') : (delta < 0 ? '−' : '+');
+                  const isCostLine = label === 'ACA cost' || label === 'State tax';
+                  const isLoss = isCostLine ? delta > 0 : delta < 0;
+                  const sign   = isCostLine ? (delta > 0 ? '+' : '−') : (delta < 0 ? '−' : '+');
                   return (
                     <p key={label} className={`text-xs font-medium ${isLoss ? 'text-red-600' : 'text-green-700'}`}
                        style={{fontVariantNumeric: 'tabular-nums'}}>
@@ -1613,6 +1676,7 @@
           ]),
           { label: 'Childcare', delta: Math.round((offeredResult.childcareValue - currentResult.childcareValue) / 12) },
           ...(opts.hasVoucher ? [{ label: 'Section 8', delta: Math.round((offeredResult.section8Value - currentResult.section8Value) / 12) }] : []),
+          { label: 'State tax', delta: Math.round((offeredResult.stateTaxOwed   - currentResult.stateTaxOwed)   / 12) },
         ].filter(b => b.delta !== 0) : [];
 
         return (
@@ -1650,8 +1714,9 @@
                 {chartBreakdown.length > 0 && (
                   <div className="mt-2.5 pt-2.5 border-t border-red-200 space-y-1">
                     {chartBreakdown.map(({ label, delta }) => {
-                      const isLoss = label === 'ACA cost' ? delta > 0 : delta < 0;
-                      const sign   = label === 'ACA cost' ? (delta > 0 ? '+' : '−') : (delta < 0 ? '−' : '+');
+                      const isCostLine = label === 'ACA cost' || label === 'State tax';
+                      const isLoss = isCostLine ? delta > 0 : delta < 0;
+                      const sign   = isCostLine ? (delta > 0 ? '+' : '−') : (delta < 0 ? '−' : '+');
                       return (
                         <p key={label} className={`text-xs font-medium ${isLoss ? 'text-red-600' : 'text-stone-500'}`}
                            style={{fontVariantNumeric:'tabular-nums'}}>
