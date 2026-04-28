@@ -1,5 +1,5 @@
 # Ohio Benefit Program Rules — FY2026
-> Last reviewed: task-43 — 27-04-2026
+> Last reviewed: task-84 — 27-04-2026
 
 Research document for the CliffCheck benefit calculation engine. Covers Ohio-specific rules for FY2026 with sources. All figures apply to the 48 contiguous states unless noted.
 
@@ -310,7 +310,51 @@ Do NOT model Section 8 as a flowing graduated benefit for the default view. It d
 
 ---
 
-## 7. Summary: Cliff Points — Family of 4, Ohio, FY2026
+## 7. Ohio State Income Tax (FY2026)
+
+**Source:** Policy Matters Ohio, "The Great Ohio Tax Shift, 2026"; Tax Foundation 2026 State Tax Changes; NerdWallet Ohio State Tax  
+**URLs:**
+- https://policymattersohio.org/research/the-great-ohio-tax-shift-2026/
+- https://taxfoundation.org/research/all/state/2026-state-tax-changes/
+- https://www.nerdwallet.com/taxes/learn/ohio-state-tax
+
+**Retrieved:** 2026-04-27
+
+### Structure (post-HB 96, 2025)
+Ohio moved to a **flat income tax** for tax year 2026:
+- **0%** on Ohio AGI ≤ **$26,050**
+- **2.75%** flat rate on Ohio AGI **above $26,050**
+
+The threshold is the same for **all filing statuses** (single, MFJ, HoH).
+
+### Not a cliff
+Crossing the $26,050 threshold does **not** trigger retroactive tax on full income. Tax applies only to the amount **above** the threshold. A worker at $26,051 owes ~$0.03; a worker at $44,000 owes $494.
+
+### Threshold history
+- Threshold has been **$26,050 since 2021**.
+- Bracket indexing is suspended through 2025–2026 (legislative decision; not auto-adjusting for inflation).
+
+### Joint filing credit / personal exemptions (TY2026)
+- Available **only** to taxpayers with MAGI ≤ $500,000.
+- Out of scope for CliffCheck's working-class persona — not modelled.
+
+### Local / municipal income tax
+- Ohio cities operate separate local income taxes via RITA (Regional Income Tax Agency) and CCA (Central Collection Agency). Rates vary by city (~1.5–2.85%).
+- **Out of scope for CliffCheck** — would require user input for city of residence/work. Documented as a known understatement of true tax burden for OH workers in major cities.
+
+### CliffCheck Modeling Assumption
+- Ohio AGI is approximated as **gross wages** (no itemised deduction capture in user input).
+- Real Ohio AGI is gross wages minus federal AGI deductions plus/minus Ohio-specific add-backs/deductions. For wage-only working-class households, this is a small approximation error.
+- Modelled as `calcStateIncomeTax(annualIncome, { stateCode: 'OH' })` returning a positive `stateTaxOwed` amount; orchestrator subtracts from `totalEffective` alongside ACA premium cost.
+
+### Cliff Impact — Family of 4, Ohio, FY2026
+- At $44,000 (canonical demo): owe **$494/year** in OH state tax.
+- At $70,000 (offered scenario): owe **$1,209/year** in OH state tax.
+- **Marginal impact of the $26K raise:** +$715 in additional state tax, slightly sharpening the cliff (from ~−$9,039 to ~−$9,754 net effective change).
+
+---
+
+## 8. Summary: Cliff Points — Family of 4, Ohio, FY2026
 
 | Program | Cliff Type | Annual Income at Cliff | Notes |
 |---|---|---|---|
@@ -346,3 +390,4 @@ Recovery happens as wages continue rising: at $70K effective = $65,068. The char
 | ACA PTC 2026 | thefinancebuff.com; Congress.gov CRS R48290 | https://thefinancebuff.com/aca-premium-tax-credit-percentages.html |
 | Ohio PFCC | Ohio DCY; childcarecostfinder.com | https://childrenandyouth.ohio.gov/for-providers/resources/pfcc |
 | Section 8 | HUD; CMHA; Lucas MHA | https://www.hud.gov/helping-americans/housing-choice-vouchers-tenants |
+| OH state income tax | Policy Matters Ohio; Tax Foundation; NerdWallet | https://policymattersohio.org/research/the-great-ohio-tax-shift-2026/ |
