@@ -1,7 +1,11 @@
 {
   "permissions": {
     "allow": [
-      "mcp__papi__*"
+      "mcp__papi__*",
+      "Bash(open *)",
+      "Bash(git rebase *)",
+      "Bash(vercel *)",
+      "Bash(supabase *)"
     ]
   }
 }
