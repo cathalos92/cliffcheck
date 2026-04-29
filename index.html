@@ -1897,6 +1897,179 @@
         );
       }
 
+      // ── SecondAdultPanel ──
+      // Session-only (useState, not TinyBase) — second-adult scenario is a
+      // transient "what-if" and doesn't belong in the persisted profile.
+      // Computes net contribution = second income − work costs − marginal tax impact.
+      // "Marginal tax impact" = difference in stateTaxOwed between combined and
+      // single-earner incomes, plus the benefit phase-outs captured by the engine.
+      function SecondAdultPanel() {
+        const stateCode        = useCell('profile', 'current', 'stateCode')        ?? DEFAULTS.stateCode;
+        const familySize       = useCell('profile', 'current', 'familySize')       ?? DEFAULTS.familySize;
+        const currentIncome    = useCell('profile', 'current', 'currentIncome')    ?? DEFAULTS.currentIncome;
+        const adultCount       = useCell('profile', 'current', 'adultCount')       ?? DEFAULTS.adultCount;
+        const hasSection8Voucher = useCell('profile', 'current', 'hasSection8Voucher') ?? DEFAULTS.hasSection8Voucher;
+        const pfccEnrolled     = useCell('profile', 'current', 'pfccEnrolled')     ?? DEFAULTS.pfccEnrolled;
+        const employerHealthInsurance = useCell('profile', 'current', 'employerHealthInsurance') ?? DEFAULTS.employerHealthInsurance;
+        const matchRate        = useCell('profile', 'current', 'matchRate')        ?? DEFAULTS.matchRate;
+
+        const [secondIncome,    setSecondIncome]    = useState(30000);
+        const [childcareCost,   setChildcareCost]   = useState(0);
+        const [transportCost,   setTransportCost]   = useState(0);
+
+        const fs    = Number(familySize);
+        const base  = Number(currentIncome);
+        const combined = base + Number(secondIncome);
+        const opts  = { stateCode, adultCount: Number(adultCount), hasVoucher: !!hasSection8Voucher,
+                        pfccEnrolled: !!pfccEnrolled, employerHealthInsurance: !!employerHealthInsurance,
+                        matchRate: Number(matchRate) || 0 };
+
+        const singleResult   = useMemo(() => calcEffectiveTakeHome(base,     fs, opts),
+          [stateCode, base, fs, adultCount, hasSection8Voucher, pfccEnrolled, employerHealthInsurance, matchRate]);
+        const combinedResult = useMemo(() => calcEffectiveTakeHome(combined, fs, opts),
+          [stateCode, combined, fs, adultCount, hasSection8Voucher, pfccEnrolled, employerHealthInsurance, matchRate]);
+
+        // Net = change in total effective value when second adult works, minus work costs
+        const benefitDelta   = combinedResult.totalEffective - singleResult.totalEffective;
+        const workCosts      = (Number(childcareCost) || 0) + (Number(transportCost) || 0);
+        // benefitDelta already includes the second income itself (engine adds grossWages)
+        // so we only subtract out-of-pocket work costs on top
+        const netContribution = benefitDelta - workCosts;
+
+        const THRESHOLD = 1000;
+        const verdict = netContribution > THRESHOLD ? 'yes'
+                      : netContribution < -THRESHOLD ? 'no'
+                      : 'marginal';
+
+        const verdictConfig = {
+          yes:      { bg: 'bg-green-50',  border: 'border-green-200',  icon: '✓', iconColor: 'text-green-600', label: 'Worth it', labelColor: 'text-green-700' },
+          no:       { bg: 'bg-red-50',    border: 'border-red-200',    icon: '✗', iconColor: 'text-red-600',   label: 'Not worth it', labelColor: 'text-red-700' },
+          marginal: { bg: 'bg-amber-50',  border: 'border-amber-200',  icon: '~', iconColor: 'text-amber-600', label: 'Marginal',   labelColor: 'text-amber-700' },
+        };
+        const vc = verdictConfig[verdict];
+
+        // Chart data: single-earner vs combined-income effective take-home
+        const chartData = useMemo(() => {
+          const pts = [];
+          for (let income = 0; income <= 120000; income += 1000) {
+            const r = calcEffectiveTakeHome(income, fs, opts);
+            pts.push({ income, single: r.totalEffective });
+          }
+          // Combined line: second income is fixed, sweep primary income
+          for (let i = 0; i < pts.length; i++) {
+            const inc = pts[i].income;
+            const r2 = calcEffectiveTakeHome(inc + Number(secondIncome), fs, opts);
+            pts[i].combined = r2.totalEffective - workCosts;
+          }
+          return pts;
+        }, [stateCode, fs, adultCount, hasSection8Voucher, pfccEnrolled, employerHealthInsurance, matchRate, secondIncome, workCosts]);
+
+        const canvasRef = useRef(null);
+        const chartRef  = useRef(null);
+
+        useEffect(() => {
+          if (!canvasRef.current) return;
+          if (chartRef.current) { chartRef.current.destroy(); chartRef.current = null; }
+          const labels = chartData.map(d => d.income === 0 ? '$0' : d.income % 20000 === 0 ? `$${d.income/1000}k` : '');
+          chartRef.current = new Chart(canvasRef.current, {
+            type: 'line',
+            data: {
+              labels,
+              datasets: [
+                { label: 'Single earner', data: chartData.map(d => d.single),   borderColor: '#44403C', borderWidth: 2, pointRadius: 0, tension: 0 },
+                { label: 'Both working',  data: chartData.map(d => d.combined), borderColor: '#16A34A', borderWidth: 2, pointRadius: 0, tension: 0, borderDash: [5,3] },
+              ],
+            },
+            options: {
+              responsive: true, maintainAspectRatio: true, aspectRatio: 2,
+              animation: { duration: 200 },
+              plugins: { legend: { display: true, position: 'bottom', labels: { boxWidth: 12, font: { size: 11 } } }, tooltip: { enabled: false } },
+              scales: {
+                x: { ticks: { font: { size: 11 }, color: '#A8A29E', maxRotation: 0 } },
+                y: { ticks: { font: { size: 11 }, color: '#A8A29E', callback: v => `$${(v/1000).toFixed(0)}k` } },
+              },
+            },
+          });
+          return () => { if (chartRef.current) { chartRef.current.destroy(); chartRef.current = null; } };
+        }, [chartData]);
+
+        function handleInput(setter, max) {
+          return e => setter(Math.max(0, Math.min(max, Number(e.target.value) || 0)));
+        }
+
+        return (
+          <div className="mt-6 bg-white rounded-2xl border border-stone-200 p-5">
+            <h2 className="text-base font-semibold text-stone-800 mb-1">Should the second adult work?</h2>
+            <p className="text-xs text-stone-500 mb-5 leading-relaxed">
+              Enter the second adult's potential income and any extra costs. We'll show whether it actually improves your household's position after benefits change.
+            </p>
+
+            {/* Second income */}
+            <div className="mb-4">
+              <label htmlFor="secondIncome" className="block text-sm font-medium text-stone-700 mb-1.5">
+                Second adult's annual income
+              </label>
+              <IncomeSlider id="secondIncome" value={Number(secondIncome)} onChange={setSecondIncome} />
+            </div>
+
+            {/* Childcare */}
+            <div className="mb-4">
+              <label htmlFor="childcareCost" className="block text-sm font-medium text-stone-700 mb-1.5">
+                Extra annual childcare cost ($)
+                <span className="block text-xs text-stone-400 font-normal mt-0.5">Full-day care needed while working. Enter 0 if already enrolled or not applicable.</span>
+              </label>
+              <input id="childcareCost" type="number" min="0" max="40000" step="500" inputMode="numeric"
+                value={childcareCost}
+                onChange={handleInput(setChildcareCost, 40000)}
+                className="w-full h-12 px-3 bg-white border border-stone-200 rounded-lg text-stone-900 text-base focus:outline-none focus:ring-2 focus:ring-amber-400"
+                style={{fontVariantNumeric:'tabular-nums'}} />
+            </div>
+
+            {/* Transport */}
+            <div className="mb-5">
+              <label htmlFor="transportCost" className="block text-sm font-medium text-stone-700 mb-1.5">
+                Extra annual transport cost ($)
+                <span className="block text-xs text-stone-400 font-normal mt-0.5">Gas, transit passes, parking. Annual total.</span>
+              </label>
+              <input id="transportCost" type="number" min="0" max="20000" step="250" inputMode="numeric"
+                value={transportCost}
+                onChange={handleInput(setTransportCost, 20000)}
+                className="w-full h-12 px-3 bg-white border border-stone-200 rounded-lg text-stone-900 text-base focus:outline-none focus:ring-2 focus:ring-amber-400"
+                style={{fontVariantNumeric:'tabular-nums'}} />
+            </div>
+
+            {/* Verdict card */}
+            <div className={`rounded-xl border ${vc.bg} ${vc.border} px-5 py-4 mb-5`}>
+              <div className="flex items-center gap-3 mb-2">
+                <span className={`text-xl font-bold ${vc.iconColor}`}>{vc.icon}</span>
+                <span className={`text-base font-bold ${vc.labelColor}`}>{vc.label}</span>
+              </div>
+              <p className="text-sm text-stone-700 leading-relaxed">
+                The second income adds{' '}
+                <span className="font-semibold" style={{fontVariantNumeric:'tabular-nums'}}>
+                  {fmtDollars(Number(secondIncome))}/yr
+                </span>{' '}
+                in wages. After benefit changes and work costs, the household is{' '}
+                <span className={`font-bold ${netContribution >= 0 ? 'text-green-700' : 'text-red-700'}`}
+                      style={{fontVariantNumeric:'tabular-nums'}}>
+                  {netContribution >= 0 ? '+' : '−'}{fmtDollars(netContribution)}/yr
+                </span>{' '}
+                {netContribution >= 0 ? 'better off' : 'worse off'}.
+              </p>
+              {workCosts > 0 && (
+                <p className="text-xs text-stone-500 mt-1.5">
+                  Work costs: {fmtDollars(workCosts)}/yr · Benefit impact: {benefitDelta - Number(secondIncome) >= 0 ? '+' : '−'}{fmtDollars(Math.abs(benefitDelta - Number(secondIncome)))}/yr
+                </p>
+              )}
+            </div>
+
+            {/* Combined-income chart */}
+            <p className="text-xs text-stone-500 mb-2">Effective take-home across primary earner incomes — comparing single vs both working</p>
+            <canvas ref={canvasRef} />
+          </div>
+        );
+      }
+
       // ── TipJarCard ──
       // Soft post-result ask, placed after ManagerBrief so the user has seen
       // their cliff chart before being asked. Free-first framing, single CTA.
@@ -2019,8 +2192,16 @@
       // on it, so an unsupported code shows the UnsupportedStateMessage in
       // place of the chart/summary/brief instead of silently rendering OH.
       function Shell() {
-        const stateCode = useCell('profile', 'current', 'stateCode') ?? DEFAULTS.stateCode;
-        const supported = isSupportedState(stateCode);
+        const stateCode  = useCell('profile', 'current', 'stateCode')  ?? DEFAULTS.stateCode;
+        const adultCount = useCell('profile', 'current', 'adultCount') ?? DEFAULTS.adultCount;
+        const supported  = isSupportedState(stateCode);
+        const isTwoAdult = Number(adultCount) >= 2;
+
+        // scenarioMode: 'raise' (default) | 'second-adult'
+        // Session-only — not persisted. Second-adult scenario is a transient what-if.
+        const [scenarioMode, setScenarioMode] = useState('raise');
+        const showSecondAdult = scenarioMode === 'second-adult' && isTwoAdult;
+
         return (
           <div className="min-h-screen bg-stone-50">
             <TrustBadge />
@@ -2032,23 +2213,51 @@
                 </p>
                 <DemoButton />
               </div>
+
+              {/* Scenario toggle — only shown for two-adult households */}
+              {supported && isTwoAdult && (
+                <div className="flex gap-2 mt-3 mb-1 bg-stone-100 rounded-xl p-1">
+                  {[
+                    { id: 'raise',        label: 'Should I take this raise?' },
+                    { id: 'second-adult', label: 'Should the second adult work?' },
+                  ].map(({ id, label }) => (
+                    <button
+                      key={id}
+                      type="button"
+                      onClick={() => setScenarioMode(id)}
+                      className={`flex-1 min-h-[44px] px-3 py-2 rounded-lg text-sm font-semibold transition-colors leading-tight ${
+                        scenarioMode === id
+                          ? 'bg-white text-stone-900 shadow-sm'
+                          : 'text-stone-500 hover:text-stone-800'
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              )}
+
               <div className="md:grid md:grid-cols-[2fr_3fr] md:gap-6 md:items-start mt-2">
                 <div>
                   <ProfileForm />
-                  {supported && <LiveSummaryStrip />}
+                  {supported && !showSecondAdult && <LiveSummaryStrip />}
                 </div>
                 <div>
                   {supported ? (
-                    <>
-                      <CliffChart />
-                      <LiveSummary />
-                    </>
+                    showSecondAdult ? null : (
+                      <>
+                        <CliffChart />
+                        <LiveSummary />
+                      </>
+                    )
                   ) : (
                     <UnsupportedStateMessage />
                   )}
                 </div>
               </div>
-              {supported && <ManagerBrief />}
+
+              {supported && showSecondAdult && <SecondAdultPanel />}
+              {supported && !showSecondAdult && <ManagerBrief />}
               <TipJarCard />
               <SourcesFooter />
             </div>
