@@ -10,12 +10,12 @@
     <meta property="og:type"        content="website" />
     <meta property="og:url"         content="https://cliffcheck.com/" />
     <meta property="og:title"       content="CliffCheck — Benefits Cliff Navigator" />
-    <meta property="og:description" content="A $26k raise leaves an Ohio family of 4 ~$9k poorer. See the hidden math. Find your safe-exit income." />
+    <meta property="og:description" content="A $26k raise leaves an Ohio family of 4 ~$10k poorer. See the hidden math. Find your safe-exit income." />
     <meta property="og:image"       content="https://cliffcheck.com/og-image.png" />
     <!-- Twitter / X -->
     <meta name="twitter:card"        content="summary_large_image" />
     <meta name="twitter:title"       content="CliffCheck — Benefits Cliff Navigator" />
-    <meta name="twitter:description" content="A $26k raise leaves an Ohio family of 4 ~$9k poorer. See the hidden math. Find your safe-exit income." />
+    <meta name="twitter:description" content="A $26k raise leaves an Ohio family of 4 ~$10k poorer. See the hidden math. Find your safe-exit income." />
     <meta name="twitter:image"       content="https://cliffcheck.com/og-image.png" />
     <script>globalThis.process = { env: { NODE_ENV: "production" } };</script>
     <!-- ── CDN dependencies — pinned versions + Subresource Integrity (SRI) ──
@@ -191,6 +191,22 @@
             incomeLimitAnnual: 52500,     // 50% AMI Columbus family of 4
             paymentStandardMonthly: 1750, // 3BR Columbus
             tenantShareRate: 0.30,
+          },
+          // Ohio state income tax — flat tax post-HB 96 (2025).
+          // Source: Policy Matters Ohio "The Great Ohio Tax Shift, 2026"
+          //  https://policymattersohio.org/research/the-great-ohio-tax-shift-2026/
+          // Source: Tax Foundation 2026 State Tax Changes
+          //  https://taxfoundation.org/research/all/state/2026-state-tax-changes/
+          // Retrieved: 2026-04-27.
+          // Structure: 0% on Ohio AGI ≤ $26,050; 2.75% flat on amount above $26,050.
+          // Single threshold for all filing statuses (frozen since 2021; indexing
+          // suspended through 2026). NOT a cliff — marginal kick-in only.
+          // Modelled on gross wages as a proxy for Ohio AGI (no itemised deductions
+          // captured in user input). Local/municipal income taxes (RITA, CCA) are
+          // out of scope — they vary by city and need explicit user input.
+          incomeTax: {
+            noTaxFloor: 26050,
+            flatRate: 0.0275,
           },
         },
         TX: {
@@ -542,12 +558,35 @@
         return p.maxCredit;
       }
 
+      // ── State Income Tax ───────────────────────────────────────────────────
+      // Per-state flat-tax model, gated on STATES.XX.incomeTax presence. States
+      // without an incomeTax block return 0 (TX has no income tax; NC/MI use
+      // bracketed structures not yet modelled). Currently only OH is wired up.
+      // Modelled on gross wages as a proxy for state AGI (user input doesn't
+      // capture itemised deductions). Returned as a positive owed amount; the
+      // orchestrator subtracts from totalEffective alongside ACA premium cost.
+      function calcStateIncomeTax(annualIncome, opts) {
+        const { stateCode = 'OH' } = opts || {};
+        const state = getState(stateCode);
+        const tax = state.incomeTax;
+        if (!tax) return 0;
+        if (annualIncome <= tax.noTaxFloor) return 0;
+        return Math.round((annualIncome - tax.noTaxFloor) * tax.flatRate);
+      }
+
       // ── Effective Take-Home ────────────────────────────────────────────────
       // Returns breakdown + totalEffective for any income across all programs.
-      // opts: { stateCode, pfccEnrolled, hasVoucher, adultCount, employerHealthInsurance }
+      // opts: { stateCode, pfccEnrolled, hasVoucher, adultCount, employerHealthInsurance, matchRate }
       // employerHealthInsurance=true short-circuits ACA premium math entirely —
       // the user's coverage comes from their employer plan, so marketplace PTC and
       // out-of-pocket marketplace premium contributions don't apply to take-home.
+      // matchRate (% of salary, e.g. 4 means 4%) is applied to annualIncome and added
+      // to totalEffective only — NOT to annualIncome passed into calc functions.
+      // Employer 401(k) contributions are not counted as earned income for
+      // SNAP/Medicaid/ACA/EITC eligibility (deferred compensation), so adding match
+      // to gross would incorrectly shift benefit thresholds. Match scales with
+      // income, so the offered side gets more match value than current — meaningful
+      // for cliff comparison.
       function calcEffectiveTakeHome(annualIncome, familySize, opts) {
         const {
           stateCode = 'OH',
@@ -555,6 +594,7 @@
           hasVoucher = false,
           adultCount = 2,
           employerHealthInsurance = false,
+          matchRate = 0,
         } = opts || {};
         const calcOpts = { stateCode, pfccEnrolled, hasVoucher, adultCount };
         const onMedicaid = isOnMedicaid(annualIncome, familySize, calcOpts);
@@ -567,13 +607,16 @@
         const section8Value  = calcSection8Value(annualIncome, familySize, calcOpts);
         const childcareValue = calcChildcareSubsidy(annualIncome, familySize, calcOpts);
         const eitcValue      = calcFederalEITC(annualIncome, familySize, calcOpts);
+        const stateTaxOwed   = calcStateIncomeTax(annualIncome, calcOpts);
+        const matchPct       = Math.max(0, Number(matchRate) || 0);
+        const matchValue     = Math.round((matchPct / 100) * annualIncome);
 
         const totalEffective = Math.round(
-          annualIncome + snapValue + medicaidValue + section8Value + childcareValue + eitcValue + acaCSRValue - acaCost
+          annualIncome + snapValue + medicaidValue + section8Value + childcareValue + eitcValue + acaCSRValue + matchValue - acaCost - stateTaxOwed
         );
 
         return { grossWages: annualIncome, snapValue, medicaidValue, acaCost, acaCSRValue,
-                 section8Value, childcareValue, eitcValue, totalEffective };
+                 section8Value, childcareValue, eitcValue, stateTaxOwed, matchValue, totalEffective };
       }
 
       // ── Cliff Chart Data ───────────────────────────────────────────────────
@@ -598,12 +641,13 @@
         const offered  = calcEffectiveTakeHome(70000, 4, { adultCount: 2 });
         const netDiff  = offered.totalEffective - current.totalEffective;
 
-        // currentEffective ~$74,907 — wages + SNAP($2,184) + Medicaid($4,500) + PFCC($19,920) + EITC($4,303)
-        // (with task-83 federal EITC modelling — TY2025 IRS Rev. Proc. 2024-40)
+        // currentEffective ~$74,413 — wages + SNAP($2,184) + Medicaid($4,500) + PFCC($19,920) + EITC($4,303) − OH state tax ($494)
+        // (with task-83 federal EITC modelling — TY2025 IRS Rev. Proc. 2024-40, task-84 OH flat tax HB 96 2025)
         console.assert(current.totalEffective >= 72000 && current.totalEffective <= 78000,
           'Demo current effective out of range', current.totalEffective);
 
-        // netDiff ~-$9,039 — the $26K raise leaves the household ~$9K worse off (EITC phase-out, partial offset by ACA CSR at 200–250% FPL)
+        // netDiff ~-$9,754 — the $26K raise leaves the household ~$10K worse off
+        // (EITC phase-out + larger OH tax bill at offered, partial offset by ACA CSR at 200–250% FPL)
         console.assert(netDiff >= -12000 && netDiff <= -6000,
           'Demo netDiff out of range', netDiff);
 
@@ -815,6 +859,62 @@
           zero_2childMFJ_at65k: eitcZero,
           childless_MFJ_at20k: eitcChildless,
         });
+
+        // Case 10: OH state income tax (HB 96 2025, flat 2.75% above $26,050).
+        // $44k → (44000 - 26050) × 0.0275 = $494.
+        const ohTaxAt44k = calcStateIncomeTax(44000, { stateCode: 'OH' });
+        console.assert(ohTaxAt44k === 494,
+          'OH state tax at $44k should be $494 ((44000-26050)*0.0275)', ohTaxAt44k);
+        // $70k → (70000 - 26050) × 0.0275 = $1,209.
+        const ohTaxAt70k = calcStateIncomeTax(70000, { stateCode: 'OH' });
+        console.assert(ohTaxAt70k === 1209,
+          'OH state tax at $70k should be $1,209 ((70000-26050)*0.0275)', ohTaxAt70k);
+        // Below the no-tax floor → 0.
+        const ohTaxBelowFloor = calcStateIncomeTax(20000, { stateCode: 'OH' });
+        console.assert(ohTaxBelowFloor === 0,
+          'OH state tax below $26,050 should be 0', ohTaxBelowFloor);
+        // Other states have no incomeTax block → 0.
+        const txTaxAt70k = calcStateIncomeTax(70000, { stateCode: 'TX' });
+        console.assert(txTaxAt70k === 0,
+          'TX has no state income tax → should be 0', txTaxAt70k);
+        const ncTaxAt70k = calcStateIncomeTax(70000, { stateCode: 'NC' });
+        console.assert(ncTaxAt70k === 0,
+          'NC not yet modelled → should be 0', ncTaxAt70k);
+        const miTaxAt70k = calcStateIncomeTax(70000, { stateCode: 'MI' });
+        console.assert(miTaxAt70k === 0,
+          'MI not yet modelled → should be 0', miTaxAt70k);
+        console.log('[CliffCheck] OH state tax (HB 96 flat 2.75%) PASSED', {
+          ohTaxAt44k, ohTaxAt70k, ohTaxBelowFloor, txTaxAt70k, ncTaxAt70k, miTaxAt70k,
+        });
+
+        // Case 11: Employer 401(k) match rate (% of salary).
+        // Default matchRate=0 should not shift demo totals (no regression on canonical OH demo).
+        const noMatch = calcEffectiveTakeHome(44000, 4, { adultCount: 2 });
+        console.assert(noMatch.matchValue === 0,
+          'matchRate default 0 should produce matchValue=0', noMatch.matchValue);
+        console.assert(noMatch.totalEffective === current.totalEffective,
+          'matchRate=0 must produce same totalEffective as canonical demo', { noMatch: noMatch.totalEffective, current: current.totalEffective });
+        // 4% match: $44k → $1,760, $70k → $2,800. Match scales with income.
+        const matchCurrent = calcEffectiveTakeHome(44000, 4, { adultCount: 2, matchRate: 4 });
+        console.assert(matchCurrent.matchValue === 1760,
+          'matchRate=4 at $44k should be $1,760', matchCurrent.matchValue);
+        const matchOffered = calcEffectiveTakeHome(70000, 4, { adultCount: 2, matchRate: 4 });
+        console.assert(matchOffered.matchValue === 2800,
+          'matchRate=4 at $70k should be $2,800', matchOffered.matchValue);
+        // Match must not shift benefit-eligibility thresholds — SNAP/Medicaid/EITC values
+        // identical with and without match (employer 401(k) is deferred comp, not earned income).
+        console.assert(matchCurrent.snapValue === current.snapValue,
+          'Match must not change SNAP value (deferred comp, not earned income)', { with: matchCurrent.snapValue, without: current.snapValue });
+        console.assert(matchCurrent.medicaidValue === current.medicaidValue,
+          'Match must not change Medicaid value', { with: matchCurrent.medicaidValue, without: current.medicaidValue });
+        console.assert(matchCurrent.eitcValue === current.eitcValue,
+          'Match must not change EITC value', { with: matchCurrent.eitcValue, without: current.eitcValue });
+        console.log('[CliffCheck] Employer 401(k) match (% of salary) PASSED', {
+          defaultMatchValue: noMatch.matchValue,
+          match4pct_at44k: matchCurrent.matchValue,
+          match4pct_at70k: matchOffered.matchValue,
+          benefitEligibilityUnchanged: true,
+        });
       })();
     </script>
 
@@ -835,7 +935,7 @@
 
       // ── Store (module-level singleton) ──
       const store = createStore();
-      const DEFAULTS = { stateCode: 'OH', familySize: 4, currentIncome: 44000, offeredIncome: 70000, adultCount: 2, hasSection8Voucher: false, pfccEnrolled: false, employerHealthInsurance: false };
+      const DEFAULTS = { stateCode: 'OH', familySize: 4, currentIncome: 44000, offeredIncome: 70000, adultCount: 2, hasSection8Voucher: false, pfccEnrolled: false, employerHealthInsurance: false, matchRate: 0 };
 
       // ── Helpers ──
       function fmtDollars(n) {
@@ -927,6 +1027,7 @@
         const hasSection8Voucher = useCell('profile', 'current', 'hasSection8Voucher') ?? DEFAULTS.hasSection8Voucher;
         const pfccEnrolled     = useCell('profile', 'current', 'pfccEnrolled')     ?? DEFAULTS.pfccEnrolled;
         const employerHealthInsurance = useCell('profile', 'current', 'employerHealthInsurance') ?? DEFAULTS.employerHealthInsurance;
+        const matchRate        = useCell('profile', 'current', 'matchRate')        ?? DEFAULTS.matchRate;
 
         const supportedStates = getSupportedStates();
 
@@ -1051,6 +1152,31 @@
               </label>
             </div>
 
+            {/* Employer 401(k) match rate (% of salary) */}
+            <div className="mb-4">
+              <label htmlFor="matchRate" className="block text-sm font-medium text-stone-700 mb-1.5">
+                Employer 401(k) match (% of salary)
+                <span className="block text-xs text-stone-400 font-normal mt-0.5">
+                  Optional. If your employer matches contributions, enter the rate (e.g. 4 for 4%). Match scales with salary so the higher offer gains more. Default 0 (off).
+                </span>
+              </label>
+              <input
+                id="matchRate"
+                type="number"
+                min="0"
+                max="20"
+                step="0.5"
+                inputMode="decimal"
+                value={matchRate}
+                onChange={e => {
+                  const v = Math.max(0, Math.min(20, Number(e.target.value) || 0));
+                  store.setCell('profile', 'current', 'matchRate', v);
+                }}
+                className="w-full h-12 px-3 bg-white border border-stone-200 rounded-lg text-stone-900 text-base focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-amber-400"
+                style={{fontVariantNumeric: 'tabular-nums'}}
+              />
+            </div>
+
             {/* Childcare subsidy enrolled — only when household has at least 1 child */}
             {Math.max(0, Number(familySize) - Number(adultCount)) > 0 && (
               <div>
@@ -1081,16 +1207,17 @@
         const hasSection8Voucher = useCell('profile', 'current', 'hasSection8Voucher') ?? DEFAULTS.hasSection8Voucher;
         const pfccEnrolled     = useCell('profile', 'current', 'pfccEnrolled')     ?? DEFAULTS.pfccEnrolled;
         const employerHealthInsurance = useCell('profile', 'current', 'employerHealthInsurance') ?? DEFAULTS.employerHealthInsurance;
+        const matchRate        = useCell('profile', 'current', 'matchRate')        ?? DEFAULTS.matchRate;
 
-        const opts = { stateCode, adultCount: Number(adultCount), hasVoucher: !!hasSection8Voucher, pfccEnrolled: !!pfccEnrolled, employerHealthInsurance: !!employerHealthInsurance };
+        const opts = { stateCode, adultCount: Number(adultCount), hasVoucher: !!hasSection8Voucher, pfccEnrolled: !!pfccEnrolled, employerHealthInsurance: !!employerHealthInsurance, matchRate: Number(matchRate) || 0 };
 
         const current = useMemo(
           () => calcEffectiveTakeHome(Number(currentIncome), Number(familySize), opts),
-          [stateCode, currentIncome, familySize, adultCount, hasSection8Voucher, pfccEnrolled, employerHealthInsurance]
+          [stateCode, currentIncome, familySize, adultCount, hasSection8Voucher, pfccEnrolled, employerHealthInsurance, matchRate]
         );
         const offered = useMemo(
           () => calcEffectiveTakeHome(Number(offeredIncome), Number(familySize), opts),
-          [stateCode, offeredIncome, familySize, adultCount, hasSection8Voucher, pfccEnrolled, employerHealthInsurance]
+          [stateCode, offeredIncome, familySize, adultCount, hasSection8Voucher, pfccEnrolled, employerHealthInsurance, matchRate]
         );
 
         const diff = offered.totalEffective - current.totalEffective;
@@ -1111,7 +1238,7 @@
             }
           }
           return null;
-        }, [stateCode, familySize, currentIncome, adultCount, hasSection8Voucher, pfccEnrolled, employerHealthInsurance]);
+        }, [stateCode, familySize, currentIncome, adultCount, hasSection8Voucher, pfccEnrolled, employerHealthInsurance, matchRate]);
 
         // Per-benefit deltas (monthly, for breakdown display)
         const breakdown = isWorse ? [
@@ -1123,6 +1250,8 @@
           ]),
           { label: 'Childcare', delta: Math.round((offered.childcareValue - current.childcareValue) / 12) },
           ...(opts.hasVoucher ? [{ label: 'Section 8', delta: Math.round((offered.section8Value - current.section8Value) / 12) }] : []),
+          { label: 'State tax', delta: Math.round((offered.stateTaxOwed   - current.stateTaxOwed)   / 12) },
+          ...((opts.matchRate || 0) > 0 ? [{ label: '401(k) match', delta: Math.round((offered.matchValue - current.matchValue) / 12) }] : []),
         ].filter(b => b.delta !== 0) : [];
 
         return (
@@ -1161,8 +1290,9 @@
               <div className="mt-4 pt-4 border-t border-stone-100 space-y-1.5">
                 <p className="text-xs font-medium text-stone-400 uppercase tracking-wide mb-2">Benefit changes (monthly)</p>
                 {breakdown.map(({ label, delta }) => {
-                  const isLoss = label === 'ACA cost' ? delta > 0 : delta < 0;
-                  const sign   = label === 'ACA cost' ? (delta > 0 ? '+' : '−') : (delta < 0 ? '−' : '+');
+                  const isCostLine = label === 'ACA cost' || label === 'State tax';
+                  const isLoss = isCostLine ? delta > 0 : delta < 0;
+                  const sign   = isCostLine ? (delta > 0 ? '+' : '−') : (delta < 0 ? '−' : '+');
                   return (
                     <p key={label} className={`text-xs font-medium ${isLoss ? 'text-red-600' : 'text-green-700'}`}
                        style={{fontVariantNumeric: 'tabular-nums'}}>
@@ -1191,16 +1321,17 @@
         const hasSection8Voucher = useCell('profile', 'current', 'hasSection8Voucher') ?? DEFAULTS.hasSection8Voucher;
         const pfccEnrolled     = useCell('profile', 'current', 'pfccEnrolled')     ?? DEFAULTS.pfccEnrolled;
         const employerHealthInsurance = useCell('profile', 'current', 'employerHealthInsurance') ?? DEFAULTS.employerHealthInsurance;
+        const matchRate        = useCell('profile', 'current', 'matchRate')        ?? DEFAULTS.matchRate;
 
-        const opts = { stateCode, adultCount: Number(adultCount), hasVoucher: !!hasSection8Voucher, pfccEnrolled: !!pfccEnrolled, employerHealthInsurance: !!employerHealthInsurance };
+        const opts = { stateCode, adultCount: Number(adultCount), hasVoucher: !!hasSection8Voucher, pfccEnrolled: !!pfccEnrolled, employerHealthInsurance: !!employerHealthInsurance, matchRate: Number(matchRate) || 0 };
 
         const current = useMemo(
           () => calcEffectiveTakeHome(Number(currentIncome), Number(familySize), opts),
-          [stateCode, currentIncome, familySize, adultCount, hasSection8Voucher, pfccEnrolled, employerHealthInsurance]
+          [stateCode, currentIncome, familySize, adultCount, hasSection8Voucher, pfccEnrolled, employerHealthInsurance, matchRate]
         );
         const offered = useMemo(
           () => calcEffectiveTakeHome(Number(offeredIncome), Number(familySize), opts),
-          [stateCode, offeredIncome, familySize, adultCount, hasSection8Voucher, pfccEnrolled, employerHealthInsurance]
+          [stateCode, offeredIncome, familySize, adultCount, hasSection8Voucher, pfccEnrolled, employerHealthInsurance, matchRate]
         );
 
         const diff = offered.totalEffective - current.totalEffective;
@@ -1379,8 +1510,9 @@
         const hasSection8Voucher = useCell('profile', 'current', 'hasSection8Voucher') ?? DEFAULTS.hasSection8Voucher;
         const pfccEnrolled     = useCell('profile', 'current', 'pfccEnrolled')     ?? DEFAULTS.pfccEnrolled;
         const employerHealthInsurance = useCell('profile', 'current', 'employerHealthInsurance') ?? DEFAULTS.employerHealthInsurance;
+        const matchRate        = useCell('profile', 'current', 'matchRate')        ?? DEFAULTS.matchRate;
 
-        const opts = { stateCode, adultCount: Number(adultCount), hasVoucher: !!hasSection8Voucher, pfccEnrolled: !!pfccEnrolled, employerHealthInsurance: !!employerHealthInsurance };
+        const opts = { stateCode, adultCount: Number(adultCount), hasVoucher: !!hasSection8Voucher, pfccEnrolled: !!pfccEnrolled, employerHealthInsurance: !!employerHealthInsurance, matchRate: Number(matchRate) || 0 };
 
         const { pts, wagePts, currentResult, offeredResult, safeExit, yMin, cliffAnnotation, programCliffs } = useMemo(() => {
           const data = getCliffChartData(Number(familySize), opts);
@@ -1460,7 +1592,7 @@
           }
 
           return { pts, wagePts, currentResult, offeredResult, safeExit, yMin, cliffAnnotation, programCliffs };
-        }, [stateCode, familySize, currentIncome, offeredIncome, adultCount, hasSection8Voucher, pfccEnrolled, employerHealthInsurance]);
+        }, [stateCode, familySize, currentIncome, offeredIncome, adultCount, hasSection8Voucher, pfccEnrolled, employerHealthInsurance, matchRate]);
 
         useEffect(() => {
           if (!canvasRef.current) return;
@@ -1533,7 +1665,7 @@
                     title: ctx => '$' + Number(ctx[0].parsed.x).toLocaleString() + '/yr wages',
                     label: ctx => {
                       const income = Number(ctx.parsed.x);
-                      const r = calcEffectiveTakeHome(income, Number(familySize), { stateCode, adultCount: Number(adultCount), hasVoucher: !!hasSection8Voucher, pfccEnrolled: !!pfccEnrolled, employerHealthInsurance: !!employerHealthInsurance });
+                      const r = calcEffectiveTakeHome(income, Number(familySize), { stateCode, adultCount: Number(adultCount), hasVoucher: !!hasSection8Voucher, pfccEnrolled: !!pfccEnrolled, employerHealthInsurance: !!employerHealthInsurance, matchRate: Number(matchRate) || 0 });
                       const lines = [
                         `Wages:      $${Math.round(r.grossWages).toLocaleString()}`,
                         `SNAP:      +$${Math.round(r.snapValue).toLocaleString()}`,
@@ -1613,6 +1745,8 @@
           ]),
           { label: 'Childcare', delta: Math.round((offeredResult.childcareValue - currentResult.childcareValue) / 12) },
           ...(opts.hasVoucher ? [{ label: 'Section 8', delta: Math.round((offeredResult.section8Value - currentResult.section8Value) / 12) }] : []),
+          { label: 'State tax', delta: Math.round((offeredResult.stateTaxOwed   - currentResult.stateTaxOwed)   / 12) },
+          ...((opts.matchRate || 0) > 0 ? [{ label: '401(k) match', delta: Math.round((offeredResult.matchValue - currentResult.matchValue) / 12) }] : []),
         ].filter(b => b.delta !== 0) : [];
 
         return (
@@ -1650,8 +1784,9 @@
                 {chartBreakdown.length > 0 && (
                   <div className="mt-2.5 pt-2.5 border-t border-red-200 space-y-1">
                     {chartBreakdown.map(({ label, delta }) => {
-                      const isLoss = label === 'ACA cost' ? delta > 0 : delta < 0;
-                      const sign   = label === 'ACA cost' ? (delta > 0 ? '+' : '−') : (delta < 0 ? '−' : '+');
+                      const isCostLine = label === 'ACA cost' || label === 'State tax';
+                      const isLoss = isCostLine ? delta > 0 : delta < 0;
+                      const sign   = isCostLine ? (delta > 0 ? '+' : '−') : (delta < 0 ? '−' : '+');
                       return (
                         <p key={label} className={`text-xs font-medium ${isLoss ? 'text-red-600' : 'text-stone-500'}`}
                            style={{fontVariantNumeric:'tabular-nums'}}>
@@ -1689,9 +1824,10 @@
         const hasSection8Voucher = useCell('profile', 'current', 'hasSection8Voucher') ?? DEFAULTS.hasSection8Voucher;
         const pfccEnrolled     = useCell('profile', 'current', 'pfccEnrolled')     ?? DEFAULTS.pfccEnrolled;
         const employerHealthInsurance = useCell('profile', 'current', 'employerHealthInsurance') ?? DEFAULTS.employerHealthInsurance;
+        const matchRate        = useCell('profile', 'current', 'matchRate')        ?? DEFAULTS.matchRate;
         const [copied, setCopied] = useState(false);
 
-        const opts = { stateCode, adultCount: Number(adultCount), hasVoucher: !!hasSection8Voucher, pfccEnrolled: !!pfccEnrolled, employerHealthInsurance: !!employerHealthInsurance };
+        const opts = { stateCode, adultCount: Number(adultCount), hasVoucher: !!hasSection8Voucher, pfccEnrolled: !!pfccEnrolled, employerHealthInsurance: !!employerHealthInsurance, matchRate: Number(matchRate) || 0 };
 
         const { current, offered, safeExit, benefitValue, diff } = useMemo(() => {
           const fs  = Number(familySize);
@@ -1712,10 +1848,13 @@
             }
           }
           return { current, offered, safeExit, benefitValue, diff };
-        }, [stateCode, familySize, currentIncome, offeredIncome, adultCount, hasSection8Voucher, pfccEnrolled, employerHealthInsurance]);
+        }, [stateCode, familySize, currentIncome, offeredIncome, adultCount, hasSection8Voucher, pfccEnrolled, employerHealthInsurance, matchRate]);
 
         const isWorse = diff < -500;
-        const line1 = `Currently earning ${fmtDollars(Number(currentIncome))}/yr with ${fmtDollars(Math.abs(benefitValue))} in annual benefit value — ${fmtDollars(current.totalEffective)} total effective`;
+        const matchSuffix = (Number(matchRate) || 0) > 0
+          ? `, including a ${matchRate}% employer 401(k) match (${fmtDollars(offered.matchValue)}/yr at the offered salary)`
+          : '';
+        const line1 = `Currently earning ${fmtDollars(Number(currentIncome))}/yr with ${fmtDollars(Math.abs(benefitValue))} in annual benefit value — ${fmtDollars(current.totalEffective)} total effective${matchSuffix}`;
         const line2 = isWorse
           ? `The ${fmtDollars(Number(offeredIncome))} offer would give ${fmtDollars(offered.totalEffective)} total effective — that's ${fmtDollars(Math.abs(diff))} less than today`
           : `The ${fmtDollars(Number(offeredIncome))} offer would give ${fmtDollars(offered.totalEffective)} total effective — ${fmtDollars(diff)} more than today`;
@@ -1754,6 +1893,179 @@
                 </li>
               ))}
             </ol>
+          </div>
+        );
+      }
+
+      // ── SecondAdultPanel ──
+      // Session-only (useState, not TinyBase) — second-adult scenario is a
+      // transient "what-if" and doesn't belong in the persisted profile.
+      // Computes net contribution = second income − work costs − marginal tax impact.
+      // "Marginal tax impact" = difference in stateTaxOwed between combined and
+      // single-earner incomes, plus the benefit phase-outs captured by the engine.
+      function SecondAdultPanel() {
+        const stateCode        = useCell('profile', 'current', 'stateCode')        ?? DEFAULTS.stateCode;
+        const familySize       = useCell('profile', 'current', 'familySize')       ?? DEFAULTS.familySize;
+        const currentIncome    = useCell('profile', 'current', 'currentIncome')    ?? DEFAULTS.currentIncome;
+        const adultCount       = useCell('profile', 'current', 'adultCount')       ?? DEFAULTS.adultCount;
+        const hasSection8Voucher = useCell('profile', 'current', 'hasSection8Voucher') ?? DEFAULTS.hasSection8Voucher;
+        const pfccEnrolled     = useCell('profile', 'current', 'pfccEnrolled')     ?? DEFAULTS.pfccEnrolled;
+        const employerHealthInsurance = useCell('profile', 'current', 'employerHealthInsurance') ?? DEFAULTS.employerHealthInsurance;
+        const matchRate        = useCell('profile', 'current', 'matchRate')        ?? DEFAULTS.matchRate;
+
+        const [secondIncome,    setSecondIncome]    = useState(30000);
+        const [childcareCost,   setChildcareCost]   = useState(0);
+        const [transportCost,   setTransportCost]   = useState(0);
+
+        const fs    = Number(familySize);
+        const base  = Number(currentIncome);
+        const combined = base + Number(secondIncome);
+        const opts  = { stateCode, adultCount: Number(adultCount), hasVoucher: !!hasSection8Voucher,
+                        pfccEnrolled: !!pfccEnrolled, employerHealthInsurance: !!employerHealthInsurance,
+                        matchRate: Number(matchRate) || 0 };
+
+        const singleResult   = useMemo(() => calcEffectiveTakeHome(base,     fs, opts),
+          [stateCode, base, fs, adultCount, hasSection8Voucher, pfccEnrolled, employerHealthInsurance, matchRate]);
+        const combinedResult = useMemo(() => calcEffectiveTakeHome(combined, fs, opts),
+          [stateCode, combined, fs, adultCount, hasSection8Voucher, pfccEnrolled, employerHealthInsurance, matchRate]);
+
+        // Net = change in total effective value when second adult works, minus work costs
+        const benefitDelta   = combinedResult.totalEffective - singleResult.totalEffective;
+        const workCosts      = (Number(childcareCost) || 0) + (Number(transportCost) || 0);
+        // benefitDelta already includes the second income itself (engine adds grossWages)
+        // so we only subtract out-of-pocket work costs on top
+        const netContribution = benefitDelta - workCosts;
+
+        const THRESHOLD = 1000;
+        const verdict = netContribution > THRESHOLD ? 'yes'
+                      : netContribution < -THRESHOLD ? 'no'
+                      : 'marginal';
+
+        const verdictConfig = {
+          yes:      { bg: 'bg-green-50',  border: 'border-green-200',  icon: '✓', iconColor: 'text-green-600', label: 'Worth it', labelColor: 'text-green-700' },
+          no:       { bg: 'bg-red-50',    border: 'border-red-200',    icon: '✗', iconColor: 'text-red-600',   label: 'Not worth it', labelColor: 'text-red-700' },
+          marginal: { bg: 'bg-amber-50',  border: 'border-amber-200',  icon: '~', iconColor: 'text-amber-600', label: 'Marginal',   labelColor: 'text-amber-700' },
+        };
+        const vc = verdictConfig[verdict];
+
+        // Chart data: single-earner vs combined-income effective take-home
+        const chartData = useMemo(() => {
+          const pts = [];
+          for (let income = 0; income <= 120000; income += 1000) {
+            const r = calcEffectiveTakeHome(income, fs, opts);
+            pts.push({ income, single: r.totalEffective });
+          }
+          // Combined line: second income is fixed, sweep primary income
+          for (let i = 0; i < pts.length; i++) {
+            const inc = pts[i].income;
+            const r2 = calcEffectiveTakeHome(inc + Number(secondIncome), fs, opts);
+            pts[i].combined = r2.totalEffective - workCosts;
+          }
+          return pts;
+        }, [stateCode, fs, adultCount, hasSection8Voucher, pfccEnrolled, employerHealthInsurance, matchRate, secondIncome, workCosts]);
+
+        const canvasRef = useRef(null);
+        const chartRef  = useRef(null);
+
+        useEffect(() => {
+          if (!canvasRef.current) return;
+          if (chartRef.current) { chartRef.current.destroy(); chartRef.current = null; }
+          const labels = chartData.map(d => d.income === 0 ? '$0' : d.income % 20000 === 0 ? `$${d.income/1000}k` : '');
+          chartRef.current = new Chart(canvasRef.current, {
+            type: 'line',
+            data: {
+              labels,
+              datasets: [
+                { label: 'Single earner', data: chartData.map(d => d.single),   borderColor: '#44403C', borderWidth: 2, pointRadius: 0, tension: 0 },
+                { label: 'Both working',  data: chartData.map(d => d.combined), borderColor: '#16A34A', borderWidth: 2, pointRadius: 0, tension: 0, borderDash: [5,3] },
+              ],
+            },
+            options: {
+              responsive: true, maintainAspectRatio: true, aspectRatio: 2,
+              animation: { duration: 200 },
+              plugins: { legend: { display: true, position: 'bottom', labels: { boxWidth: 12, font: { size: 11 } } }, tooltip: { enabled: false } },
+              scales: {
+                x: { ticks: { font: { size: 11 }, color: '#A8A29E', maxRotation: 0 } },
+                y: { ticks: { font: { size: 11 }, color: '#A8A29E', callback: v => `$${(v/1000).toFixed(0)}k` } },
+              },
+            },
+          });
+          return () => { if (chartRef.current) { chartRef.current.destroy(); chartRef.current = null; } };
+        }, [chartData]);
+
+        function handleInput(setter, max) {
+          return e => setter(Math.max(0, Math.min(max, Number(e.target.value) || 0)));
+        }
+
+        return (
+          <div className="mt-6 bg-white rounded-2xl border border-stone-200 p-5">
+            <h2 className="text-base font-semibold text-stone-800 mb-1">Should the second adult work?</h2>
+            <p className="text-xs text-stone-500 mb-5 leading-relaxed">
+              Enter the second adult's potential income and any extra costs. We'll show whether it actually improves your household's position after benefits change.
+            </p>
+
+            {/* Second income */}
+            <div className="mb-4">
+              <label htmlFor="secondIncome" className="block text-sm font-medium text-stone-700 mb-1.5">
+                Second adult's annual income
+              </label>
+              <IncomeSlider id="secondIncome" value={Number(secondIncome)} onChange={setSecondIncome} />
+            </div>
+
+            {/* Childcare */}
+            <div className="mb-4">
+              <label htmlFor="childcareCost" className="block text-sm font-medium text-stone-700 mb-1.5">
+                Extra annual childcare cost ($)
+                <span className="block text-xs text-stone-400 font-normal mt-0.5">Full-day care needed while working. Enter 0 if already enrolled or not applicable.</span>
+              </label>
+              <input id="childcareCost" type="number" min="0" max="40000" step="500" inputMode="numeric"
+                value={childcareCost}
+                onChange={handleInput(setChildcareCost, 40000)}
+                className="w-full h-12 px-3 bg-white border border-stone-200 rounded-lg text-stone-900 text-base focus:outline-none focus:ring-2 focus:ring-amber-400"
+                style={{fontVariantNumeric:'tabular-nums'}} />
+            </div>
+
+            {/* Transport */}
+            <div className="mb-5">
+              <label htmlFor="transportCost" className="block text-sm font-medium text-stone-700 mb-1.5">
+                Extra annual transport cost ($)
+                <span className="block text-xs text-stone-400 font-normal mt-0.5">Gas, transit passes, parking. Annual total.</span>
+              </label>
+              <input id="transportCost" type="number" min="0" max="20000" step="250" inputMode="numeric"
+                value={transportCost}
+                onChange={handleInput(setTransportCost, 20000)}
+                className="w-full h-12 px-3 bg-white border border-stone-200 rounded-lg text-stone-900 text-base focus:outline-none focus:ring-2 focus:ring-amber-400"
+                style={{fontVariantNumeric:'tabular-nums'}} />
+            </div>
+
+            {/* Verdict card */}
+            <div className={`rounded-xl border ${vc.bg} ${vc.border} px-5 py-4 mb-5`}>
+              <div className="flex items-center gap-3 mb-2">
+                <span className={`text-xl font-bold ${vc.iconColor}`}>{vc.icon}</span>
+                <span className={`text-base font-bold ${vc.labelColor}`}>{vc.label}</span>
+              </div>
+              <p className="text-sm text-stone-700 leading-relaxed">
+                The second income adds{' '}
+                <span className="font-semibold" style={{fontVariantNumeric:'tabular-nums'}}>
+                  {fmtDollars(Number(secondIncome))}/yr
+                </span>{' '}
+                in wages. After benefit changes and work costs, the household is{' '}
+                <span className={`font-bold ${netContribution >= 0 ? 'text-green-700' : 'text-red-700'}`}
+                      style={{fontVariantNumeric:'tabular-nums'}}>
+                  {netContribution >= 0 ? '+' : '−'}{fmtDollars(netContribution)}/yr
+                </span>{' '}
+                {netContribution >= 0 ? 'better off' : 'worse off'}.
+              </p>
+              {workCosts > 0 && (
+                <p className="text-xs text-stone-500 mt-1.5">
+                  Work costs: {fmtDollars(workCosts)}/yr · Benefit impact: {benefitDelta - Number(secondIncome) >= 0 ? '+' : '−'}{fmtDollars(Math.abs(benefitDelta - Number(secondIncome)))}/yr
+                </p>
+              )}
+            </div>
+
+            {/* Combined-income chart */}
+            <p className="text-xs text-stone-500 mb-2">Effective take-home across primary earner incomes — comparing single vs both working</p>
+            <canvas ref={canvasRef} />
           </div>
         );
       }
@@ -1880,8 +2192,16 @@
       // on it, so an unsupported code shows the UnsupportedStateMessage in
       // place of the chart/summary/brief instead of silently rendering OH.
       function Shell() {
-        const stateCode = useCell('profile', 'current', 'stateCode') ?? DEFAULTS.stateCode;
-        const supported = isSupportedState(stateCode);
+        const stateCode  = useCell('profile', 'current', 'stateCode')  ?? DEFAULTS.stateCode;
+        const adultCount = useCell('profile', 'current', 'adultCount') ?? DEFAULTS.adultCount;
+        const supported  = isSupportedState(stateCode);
+        const isTwoAdult = Number(adultCount) >= 2;
+
+        // scenarioMode: 'raise' (default) | 'second-adult'
+        // Session-only — not persisted. Second-adult scenario is a transient what-if.
+        const [scenarioMode, setScenarioMode] = useState('raise');
+        const showSecondAdult = scenarioMode === 'second-adult' && isTwoAdult;
+
         return (
           <div className="min-h-screen bg-stone-50">
             <TrustBadge />
@@ -1893,23 +2213,51 @@
                 </p>
                 <DemoButton />
               </div>
+
+              {/* Scenario toggle — only shown for two-adult households */}
+              {supported && isTwoAdult && (
+                <div className="flex gap-2 mt-3 mb-1 bg-stone-100 rounded-xl p-1">
+                  {[
+                    { id: 'raise',        label: 'Should I take this raise?' },
+                    { id: 'second-adult', label: 'Should the second adult work?' },
+                  ].map(({ id, label }) => (
+                    <button
+                      key={id}
+                      type="button"
+                      onClick={() => setScenarioMode(id)}
+                      className={`flex-1 min-h-[44px] px-3 py-2 rounded-lg text-sm font-semibold transition-colors leading-tight ${
+                        scenarioMode === id
+                          ? 'bg-white text-stone-900 shadow-sm'
+                          : 'text-stone-500 hover:text-stone-800'
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              )}
+
               <div className="md:grid md:grid-cols-[2fr_3fr] md:gap-6 md:items-start mt-2">
                 <div>
                   <ProfileForm />
-                  {supported && <LiveSummaryStrip />}
+                  {supported && !showSecondAdult && <LiveSummaryStrip />}
                 </div>
                 <div>
                   {supported ? (
-                    <>
-                      <CliffChart />
-                      <LiveSummary />
-                    </>
+                    showSecondAdult ? null : (
+                      <>
+                        <CliffChart />
+                        <LiveSummary />
+                      </>
+                    )
                   ) : (
                     <UnsupportedStateMessage />
                   )}
                 </div>
               </div>
-              {supported && <ManagerBrief />}
+
+              {supported && showSecondAdult && <SecondAdultPanel />}
+              {supported && !showSecondAdult && <ManagerBrief />}
               <TipJarCard />
               <SourcesFooter />
             </div>
