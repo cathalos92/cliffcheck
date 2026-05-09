@@ -4,7 +4,7 @@
 
 **Live app:** **https://cliffcheck.com** (phone-first — open on mobile for the intended experience)
 
-A working-class American earning $44k can be offered a $26k raise and end up **~$9k poorer** in effective take-home — once SNAP, Medicaid, ACA premium tax credits and cost-sharing reductions, Section 8, federal EITC, and childcare subsidies phase out together. The math is deliberately hidden by fragmented benefit systems. CliffCheck reveals it.
+A working-class American earning $44k can be offered a $26k raise and end up **~$10k poorer** in effective take-home — once SNAP, Medicaid, ACA premium tax credits and cost-sharing reductions, Section 8, federal EITC, childcare subsidies, and Ohio state income tax all stack against the raise. The math is deliberately hidden by fragmented benefit systems. CliffCheck reveals it.
 
 Built for **VibeJam 2026** (April 20–25, 2026) — VibesOS track.
 
@@ -33,9 +33,9 @@ All calculation runs locally in your browser. **No financial data leaves your de
 
 **Ohio warehouse worker, family of 4, currently earning $44k.** Offered a promotion to $70k.
 
-- **Current** effective take-home: ~$74.9k (wages $44k + SNAP $2.2k + Medicaid proxy $4.5k + PFCC childcare subsidy $19.9k + federal EITC $4.3k)
-- **After promotion**: ~$65.9k effective — loses SNAP, Medicaid, PFCC childcare, and most of the EITC; incurs ACA premiums (offset partially by the cost-sharing reduction at 200–250% FPL)
-- **Net**: $26k raise leaves them **~$9k worse off**
+- **Current** effective take-home: ~$74.4k (wages $44k + SNAP $2.2k + Medicaid proxy $4.5k + PFCC childcare subsidy $19.9k + federal EITC $4.3k − OH state tax $0.5k)
+- **After promotion**: ~$63.9k effective — loses SNAP, Medicaid, PFCC childcare, and most of the EITC; incurs ACA premiums (offset partially by the cost-sharing reduction at 200–250% FPL); OH state tax bill rises to ~$1.2k
+- **Net**: $26k raise leaves them **~$10.5k worse off**
 - **Safe exit**: ~$85k — first income where effective take-home exceeds current + a $2k buffer
 
 Open the app, click **"Try the demo"**, watch the chart.
