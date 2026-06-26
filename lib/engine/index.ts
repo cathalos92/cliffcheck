@@ -9,7 +9,7 @@
 // Public API
 export { getEffectiveTakeHome, getCliffData } from './takeHome';
 export { getSupportedStates, isSupportedState } from './registry';
-export { getStateSources } from './provenance';
+export { getStateSources, collectSources, isGovSource, SOURCE_URLS } from './provenance';
 export { getHeroScenarios } from './scenarios';
 
 // Per-program calc functions — exposed for the engine validation suite, which
