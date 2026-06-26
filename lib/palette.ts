@@ -113,6 +113,28 @@ const globalsRoot: Tok[] = [
 ];
 
 /**
+ * Motion + elevation tokens (non-colour). DESIGN-DIRECTION.md §8/§9. These live
+ * in the same single source so every surface pulls timing, easing, and depth
+ * from one canon. Motion is premium on the marketing surface and calm on the
+ * tool; reduced-motion handling is enforced in component CSS, not here. The
+ * elevation steps are deliberately soft and warm-tinted (no cold/heavy shadow);
+ * the tool surface stays flat (DESIGN.md) — these are for marketing depth only.
+ */
+const globalsMotion: Tok[] = [
+  { c: 'Motion + elevation — DESIGN-DIRECTION.md §8/§9 (marketing depth; tool stays flat)' },
+  { c: 'Motion durations' },
+  ['motion-fast', '160ms', 'hover/press micro-interactions'],
+  ['motion-base', '240ms', 'scroll-reveal entrances, card transitions'],
+  ['motion-slow', '480ms', 'rotating hero crossfade'],
+  { c: 'Easing curves' },
+  ['ease-out', 'cubic-bezier(0.16, 1, 0.3, 1)', 'confident settle'],
+  ['ease-standard', 'cubic-bezier(0.4, 0, 0.2, 1)'],
+  { c: 'Elevation — soft, warm-tinted; marketing only (tool stays flat)' },
+  ['elevation-card', '0 1px 2px rgba(28, 25, 23, 0.04)', 'resting feature card'],
+  ['elevation-float', '0 8px 30px rgba(28, 25, 23, 0.06)', 'floating card / hover lift'],
+];
+
+/**
  * Every generated region, keyed by `file → markerId → renderer`. The generator
  * (scripts/gen-palette.ts) walks this map, splices each region between its
  * markers, and writes the file back. Indent matches each file's nesting.
@@ -120,5 +142,6 @@ const globalsRoot: Tok[] = [
 export const REGIONS: Record<string, Record<string, () => string>> = {
   'app/globals.css': {
     root: () => renderBlock(globalsRoot, '  '),
+    motion: () => renderBlock(globalsMotion, '  '),
   },
 };

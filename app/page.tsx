@@ -1,16 +1,17 @@
 /**
- * Placeholder home page — scaffold proof only (task-105).
+ * Placeholder home page — chrome/shell proof only (task-116).
  *
- * Intentionally ZERO real UI: no calculator, hero, chart, or landing sections.
- * This exists solely to prove the CliffCheck design tokens render. Real UI lands
- * in later re-platform cycles (calculator island, rotating hero, landing shell).
- * Styled only via the design tokens defined in app/globals.css.
+ * Intentionally minimal: the real landing (rotating hero + scroll narrative) is
+ * task-117, the calculator is task-118. This placeholder renders inside the
+ * shared SiteChrome shell (Header + TrustBadge + Footer, wired in app/layout)
+ * so the cohesive frame can be reviewed. Styled only via the design tokens in
+ * app/globals.css.
  */
 export default function Home() {
   return (
-    <main
+    <div
       style={{
-        minHeight: "100dvh",
+        minHeight: "60dvh",
         display: "flex",
         flexDirection: "column",
         alignItems: "center",
@@ -42,6 +43,6 @@ export default function Home() {
       >
         The hidden math behind benefits cliffs — and the exact income to escape one.
       </p>
-    </main>
+    </div>
   );
 }
