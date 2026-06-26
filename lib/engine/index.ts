@@ -12,6 +12,14 @@ export { getSupportedStates, isSupportedState } from './registry';
 export { getStateSources } from './provenance';
 export { getHeroScenarios } from './scenarios';
 
+// Per-program calc functions — exposed for the engine validation suite, which
+// converts the inline console.assert specs that called these directly. Tests
+// import only from this barrel.
+export { calcFederalEITC } from './eitc';
+export { calcACACSR } from './aca';
+export { calcStateIncomeTax } from './tax';
+export { FED } from './federal';
+
 // Public types
 export type {
   TakeHomeInput,
