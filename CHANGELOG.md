@@ -1,5 +1,14 @@
 # Changelog
 
+## v0.15.0 — 2026-06-26
+
+- 3b9489b merge: Cycle 15 — re-platform foundation (Next.js scaffold + engine extraction + tests + gov-source guard)
+- 36a23c2 test(task-107): gov-source provenance guard (suite stays green)
+- 8047640 test(task-106): convert validation suite to Vitest (74 tests, engine green gate)
+- 252024e feat(task-108): Extract benefit calculation engine from index.html into typed, framework-free TS modules (lib/engine/*)
+- fde3539 feat(task-105): scaffold Next.js 16 app shell + palette tooling
+- c9925b1 chore(security): untrack .mcp.json from git
+
 ## v0.13.0 — 2026-05-09T20:36:11.028Z
 
 - 5f8f829 Merge pull request #12 from cathalos92/feat/task-85
