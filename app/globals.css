@@ -1,0 +1,98 @@
+@import "tailwindcss";
+
+:root {
+  /* Colors — CliffCheck canon: warm stone/amber + chart-zone semantics.
+     GENERATED — do not edit between the markers. Edit CANON in lib/palette.ts
+     and run `npm run gen:palette`. CI (`palette:check`) fails on drift. */
+  /* @palette:root start */
+  /* CliffCheck canon — warm stone/amber + chart-zone semantics (DESIGN.md) */
+  /* Surfaces */
+  --color-warm-white: #FAFAF9;  /* page background */
+  --color-surface-white: #FFFFFF;  /* cards, inputs */
+  --color-surface-cream: #FFF7ED;  /* result cards, manager brief */
+  --color-trust-surface: #F5F5F4;  /* header, trust badge, summary strip */
+  --color-border-stone: #E7E5E4;  /* card edges, dividers, input borders */
+  /* Brand — the signal colour */
+  --color-brand-amber: #F59E0B;  /* primary buttons, active states, focus rings */
+  --color-cta-hover-amber: #D97706;  /* button hover; chart transition zones */
+  /* Text — never pure black */
+  --color-text-primary: #1C1917;
+  --color-text-secondary: #57534E;
+  --color-text-muted: #A8A29E;
+  /* Financial semantics — green safe, red cliff (never decorative) */
+  --color-safe-green: #16A34A;
+  --color-cliff-red: #DC2626;
+  --color-positive-delta: #15803D;  /* "+$X" text — darker green for contrast */
+  --color-negative-delta: #B91C1C;  /* "−$X" text — darker red for contrast */
+  /* Chart markers — reserved, single-use */
+  --color-current-income-blue: #2563EB;  /* "You are here" marker ONLY */
+  --color-offered-income-violet: #7C3AED;  /* "Offer" marker ONLY */
+  /* Chart zone fills + line */
+  --color-chart-safe-fill: #DCFCE7;
+  --color-chart-cliff-fill: #FEF2F2;
+  --color-chart-transition-fill: #FFFBEB;
+  --color-chart-line: #44403C;  /* primary effective-income line, no smoothing */
+  /* Card backgrounds */
+  --color-cliff-alert-bg: #FEF2F2;
+  --color-safe-exit-bg: #F0FDF4;
+  /* @palette:root end */
+
+  /* Spacing (4px base grid — DESIGN.md) */
+  --space-xs: 8px;
+  --space-sm: 12px;
+  --space-md: 16px;
+  --space-lg: 24px;
+  --space-xl: 32px;
+  --space-xxl: 40px;
+
+  /* Radius (DESIGN.md) */
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+
+  /* Typography — system stack only. No custom font loading: target users are
+     on cheap Android phones with variable font rendering (DESIGN.md rule). */
+  --font-sans: system-ui, -apple-system, sans-serif;
+  --type-display: clamp(2.5rem, 5vw, 3.5rem);  /* hero/result numbers */
+  --type-heading: 18px;
+  --type-subheading: 14px;
+  --type-body: 14px;
+  --type-caption: 12px;
+}
+
+/* Make CliffCheck tokens available as Tailwind 4 utility colours. */
+@theme inline {
+  --color-warm-white: var(--color-warm-white);
+  --color-surface-white: var(--color-surface-white);
+  --color-surface-cream: var(--color-surface-cream);
+  --color-trust-surface: var(--color-trust-surface);
+  --color-border-stone: var(--color-border-stone);
+  --color-brand-amber: var(--color-brand-amber);
+  --color-cta-hover-amber: var(--color-cta-hover-amber);
+  --color-text-primary: var(--color-text-primary);
+  --color-text-secondary: var(--color-text-secondary);
+  --color-text-muted: var(--color-text-muted);
+  --color-safe-green: var(--color-safe-green);
+  --color-cliff-red: var(--color-cliff-red);
+  --font-sans: var(--font-sans);
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background-color: var(--color-warm-white);
+  color: var(--color-text-primary);
+  font-family: var(--font-sans);
+  font-size: var(--type-body);
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Money values align in columns and read accurately (DESIGN.md). */
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}

@@ -1,0 +1,2555 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>CliffCheck — Benefits Cliff Navigator</title>
+    <meta name="description" content="See the hidden math that keeps families stuck. Find out if a raise actually makes you poorer." />
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%23F59E0B'/><text x='16' y='22' text-anchor='middle' font-size='18' font-family='system-ui,sans-serif' font-weight='bold' fill='%231C1917'>C</text></svg>" />
+    <!-- Open Graph -->
+    <meta property="og:type"        content="website" />
+    <meta property="og:url"         content="https://cliffcheck.com/" />
+    <meta property="og:title"       content="CliffCheck — Benefits Cliff Navigator" />
+    <meta property="og:description" content="A $26k raise leaves an Ohio family of 4 ~$10k poorer. See the hidden math. Find your safe-exit income." />
+    <meta property="og:image"       content="https://cliffcheck.com/og-image.png" />
+    <!-- Twitter / X -->
+    <meta name="twitter:card"        content="summary_large_image" />
+    <meta name="twitter:title"       content="CliffCheck — Benefits Cliff Navigator" />
+    <meta name="twitter:description" content="A $26k raise leaves an Ohio family of 4 ~$10k poorer. See the hidden math. Find your safe-exit income." />
+    <meta name="twitter:image"       content="https://cliffcheck.com/og-image.png" />
+    <script>globalThis.process = { env: { NODE_ENV: "production" } };</script>
+    <!-- ── CDN dependencies — pinned versions + Subresource Integrity (SRI) ──
+         Hashes generated via: curl -L <url> | openssl dgst -sha384 -binary | openssl base64 -A
+         Pinned: @babel/standalone 7.26.0, @tailwindcss/browser 4.2.4, chart.js 4.4.0
+         Importmap entries below resolve esm.sh modules at fixed semver (react@19.2.4, tinybase@8) —
+         the importmap spec does not yet support `integrity`, so SRI on those is deferred until
+         the standard ships. (Per task-58 audit + task-69 hardening.) -->
+    <script src="https://unpkg.com/@babel/standalone@7.26.0/babel.min.js"
+            integrity="sha384-gfoIoghgrQ+acOP1IAci7PIH0wjwxDVkjgSczIHAcAGEWKu6Ztq1HaNa41oW95ya"
+            crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4.2.4"
+            integrity="sha384-yNSZBFvuOWcmww494a9+1zNuvgUGEXoWkein7cxP8wHUTi3iXCU4vJ7hr3tzBCml"
+            crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"
+            integrity="sha384-e6nUZLBkQ86NJ6TVVKAeSaK8jWa3NhkYWZFomE39AvDbQWeie9PlQqM3pmYW5d1g"
+            crossorigin="anonymous"></script>
+    <script type="importmap">
+      {
+        "imports": {
+          "react": "https://esm.sh/stable/react@19.2.4",
+          "react/jsx-runtime": "https://esm.sh/stable/react@19.2.4/jsx-runtime",
+          "react-dom": "https://esm.sh/stable/react-dom@19.2.4",
+          "react-dom/client": "https://esm.sh/stable/react-dom@19.2.4/client",
+          "tinybase": "https://esm.sh/tinybase@8?external=react,react-dom",
+          "tinybase/ui-react": "https://esm.sh/tinybase@8/ui-react?external=react,react-dom",
+          "tinybase/persisters/persister-browser": "https://esm.sh/tinybase@8/persisters/persister-browser?external=react,react-dom"
+        }
+      }
+    </script>
+    <style>
+      html, body { margin: 0; padding: 0; }
+      #root { min-height: 100vh; }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+
+    <!-- ── Benefit Calculation Engine ─────────────────────────────────────────
+         Federal rules live in FED; per-state overrides live in STATES.
+         Sources: docs/state-rules/oh.md (Ohio FY2026 rules, retrieved 2026-04-21)
+                  docs/research/all-states-findings.md (architecture pattern)
+         All income values in annual dollars. Phase-outs as continuous functions. -->
+    <script>
+      // ── FED: Federal-uniform rules shared across all states ────────────────
+      // Federal Poverty Guidelines FY2026 — 48 contiguous states + D.C.
+      // Source: HHS/ASPE, Federal Register 2026-01-15
+      // https://aspe.hhs.gov/topics/poverty-economic-mobility/poverty-guidelines
+      // SNAP federal baseline: USDA FNS FY2026
+      // https://www.fns.usda.gov/snap/recipient/eligibility
+      // ACA PTC: IRC §36B; standard FY2026 applicable-percentage table
+      // https://thefinancebuff.com/aca-premium-tax-credit-percentages.html
+      // NOTE: ARP/IRA enhanced PTCs expired end of 2025 — 400% FPL cliff returned 2026.
+      const FED = {
+        fpl: {
+          base2026: 15960,
+          increment2026: 5680,
+        },
+        snap: {
+          // Federal SNAP rules — USDA FNS FY2026.
+          // Sources:
+          //  • Standard/excess-shelter/EID/net limits: 7 CFR §273.9 + USDA COLA notice FY2026.
+          //    https://www.fns.usda.gov/snap/recipient/eligibility (retrieved 2026-04-25)
+          //  • Excess shelter deduction cap: $712/mo for households without elderly/disabled
+          //    members in 48 contiguous states + DC (FY2026 COLA).
+          //  • Net income test: 100% FPL applies to all households (BBCE waives gross test
+          //    + asset test, but never the net test). Confirmed against USDA BBCE policy notes.
+          netLimitFPL: 1.00,
+          stdDeduction:        [0, 209, 209, 209, 228, 247, 266],
+          eidRate: 0.20,
+          excessShelterCap: 712,        // $/mo, 48 states + DC, FY2026
+          // Shelter cost proxy when user input doesn't capture rent/mortgage explicitly.
+          // HUD affordability threshold = 30% of gross. Voucher holders' tenant share is
+          // already capped at 30% by Section 8 design — net excess shelter ≈ 0 for them.
+          shelterProxyShare: 0.30,
+          benefitReductionRate: 0.30,
+          maxMonthlyBenefit:   [0, 298, 549, 785, 994, 1183, 1419],
+        },
+        aca: {
+          eligibleFPLMin: 1.00,
+          cliffFPL: 4.00,
+          pctTable: [
+            [1.00, 0.0210],
+            [1.33, 0.0314],
+            [1.50, 0.0419],
+            [2.00, 0.0660],
+            [2.50, 0.0844],
+            [3.00, 0.0996],
+            [4.00, 0.0996],
+          ],
+          // CSR: Cost-Sharing Reduction (Silver plan AV uplift below 250% FPL).
+          // Source: HHS Notice of Benefit and Payment Parameters 2026, 45 CFR 156.420.
+          // CSR reduces deductible/copay/OOP-max — NOT premium. Modelled as an
+          // *effective value* (annual avoided cost-sharing per enrollee), separate
+          // from the premium tax credit (calcACAPremium).
+          // Per-enrollee dollar values are KFF national averages (Silver plan
+          // expected annual cost-sharing at base 70% AV minus expected cost-sharing
+          // at the CSR-uplifted AV tier). Simplification: per-enrollee × familySize;
+          // does not vary by age, region, or actual utilization. Eligibility:
+          // <250% FPL AND on the marketplace (not Medicaid, not employer-covered).
+          csr: {
+            tiers: [
+              { maxFPL: 1.50, av: 0.94, perEnrolleeAnnual: 1400 },
+              { maxFPL: 2.00, av: 0.87, perEnrolleeAnnual: 900  },
+              { maxFPL: 2.50, av: 0.73, perEnrolleeAnnual: 200  },
+            ],
+          },
+        },
+        medicaid: {
+          // Dollar proxy for the value of free Medicaid coverage (per adult per year).
+          // Represents the marketplace premium cost a family avoids by having Medicaid.
+          adultAnnualValueProxy: 2250, // $/adult/year
+        },
+        // Federal Earned Income Tax Credit — Tax Year 2025 (filed in 2026).
+        // Source: IRS Rev. Proc. 2024-40 (annual inflation adjustments).
+        // https://www.irs.gov/credits-deductions/individuals/earned-income-tax-credit/eitc-tables
+        // Retrieved 2026-04-25.
+        // Three-region piecewise: phase-in (linear), plateau (flat at maxCredit), phase-out (linear).
+        // Phase-out start is higher for MFJ filers (married-filing-jointly) than single by a fixed delta.
+        // Keys = number of qualifying children (0, 1, 2, 3+ → clamp at 3).
+        eitc: {
+          0: { phaseInRate: 0.0765, earnedAmt: 8490,  maxCredit:  649, phaseOutStartSingle: 10620, phaseOutStartMFJ: 17730, phaseOutRate: 0.0765 },
+          1: { phaseInRate: 0.34,   earnedAmt: 12730, maxCredit: 4328, phaseOutStartSingle: 23350, phaseOutStartMFJ: 30470, phaseOutRate: 0.1598 },
+          2: { phaseInRate: 0.40,   earnedAmt: 17880, maxCredit: 7152, phaseOutStartSingle: 23350, phaseOutStartMFJ: 30470, phaseOutRate: 0.2106 },
+          3: { phaseInRate: 0.45,   earnedAmt: 17880, maxCredit: 8046, phaseOutStartSingle: 23350, phaseOutStartMFJ: 30470, phaseOutRate: 0.2106 },
+        },
+      };
+
+      function getFPL(familySize) {
+        return FED.fpl.base2026 + (Math.max(1, familySize) - 1) * FED.fpl.increment2026;
+      }
+
+      function getFPLPercent(annualIncome, familySize) {
+        return annualIncome / getFPL(familySize);
+      }
+
+      // ── STATES: Per-state rule tables keyed by 2-letter code ───────────────
+      // Each state exposes: supported, label, snap, medicaid, aca, childcare, housing.
+      // To add a state: create STATES.XX with these fields and a validateXX() block.
+      const STATES = {
+        OH: {
+          supported: true,
+          label: 'Ohio',
+          // SNAP: Ohio BBCE (200% FPL gross limit) — federal default is 130%.
+          snap: {
+            grossLimitFPL: 2.00,
+          },
+          // Medicaid: Ohio expanded 2014. Adults 19–64 eligible to 138% FPL.
+          // https://www.medicaid.gov/state-overviews/stateprofile.html?state=Ohio
+          medicaid: {
+            expanded: true,
+            expansionFPL: 1.38,  // 133% + 5% income disregard
+            childrenFPL: 2.16,
+          },
+          // ACA: SLCSP benchmark — central/northeast Ohio representative values, FY2026.
+          aca: {
+            slcspMonthly: { 1: 700, 2: 1400, 3: 1750, 4: 2100, 5: 2625, 6: 3150 },
+          },
+          // Ohio PFCC Childcare Subsidy — Ohio DCY
+          // https://childrenandyouth.ohio.gov/for-providers/resources/pfcc
+          childcare: {
+            subsidyName: 'PFCC',  // Publicly Funded Child Care
+            entryFPL: 1.45,
+            exitFPL: 3.00,
+            coPayRate: 0.07,     // Effective July 2026
+            coPayFreeFPL: 1.00,
+            // Annual gross childcare value — Ohio 75th percentile market rate
+            valuePerChild: [0, 11000, 23000, 33000],
+          },
+          // Section 8 / HCV — HUD; Columbus MHA (CMHA) 2026 est.
+          // Modeled inactive by default (Ohio PHA waitlists closed).
+          housing: {
+            incomeLimitAnnual: 52500,     // 50% AMI Columbus family of 4
+            paymentStandardMonthly: 1750, // 3BR Columbus
+            tenantShareRate: 0.30,
+          },
+          // Ohio state income tax — flat tax post-HB 96 (2025).
+          // Source: Policy Matters Ohio "The Great Ohio Tax Shift, 2026"
+          //  https://policymattersohio.org/research/the-great-ohio-tax-shift-2026/
+          // Source: Tax Foundation 2026 State Tax Changes
+          //  https://taxfoundation.org/research/all/state/2026-state-tax-changes/
+          // Retrieved: 2026-04-27.
+          // Structure: 0% on Ohio AGI ≤ $26,050; 2.75% flat on amount above $26,050.
+          // Single threshold for all filing statuses (frozen since 2021; indexing
+          // suspended through 2026). NOT a cliff — marginal kick-in only.
+          // Modelled on gross wages as a proxy for Ohio AGI (no itemised deductions
+          // captured in user input). Local/municipal income taxes (RITA, CCA) are
+          // out of scope — they vary by city and need explicit user input.
+          incomeTax: {
+            noTaxFloor: 26050,
+            flatRate: 0.0275,
+          },
+        },
+        TX: {
+          supported: true,
+          label: 'Texas',
+          // SNAP: Texas BBCE at 165% FPL (gross limit) — Texas HHSC.
+          // https://www.fns.usda.gov/snap/broad-based-categorical-eligibility
+          snap: {
+            grossLimitFPL: 1.65,
+          },
+          // Medicaid: Texas is non-expansion. Parents eligible to ~18% FPL;
+          // childless adults generally ineligible (0% FPL). CHIP covers children to 201% FPL.
+          // https://www.kff.org/medicaid/state-indicator/medicaid-income-eligibility-limits/
+          medicaid: {
+            expanded: false,
+            parentFPL: 0.18,
+            childlessAdultFPL: 0,
+            childrenFPL: 2.01,
+          },
+          // ACA: SLCSP benchmark — Dallas-Fort Worth representative values, FY2026.
+          // https://www.kff.org/interactive/subsidy-calculator/
+          aca: {
+            slcspMonthly: { 1: 650, 2: 1300, 3: 1625, 4: 1950, 5: 2438, 6: 2925 },
+          },
+          // Texas Child Care Services (CCS) — Texas Workforce Commission.
+          // Entry 200% FPL; continuation to 85% SMI (~285% FPL for family of 4).
+          // Copay sliding 0–12% based on FPL band; modeled as ~8% average.
+          // https://www.twc.texas.gov/programs/child-care
+          childcare: {
+            subsidyName: 'CCS',  // Child Care Services
+            entryFPL: 2.00,
+            exitFPL: 2.85,            // 85% SMI ≈ 285% FPL for family of 4 (approx)
+            coPayRate: 0.08,          // sliding average — TWC CCS 2026
+            coPayFreeFPL: 0.50,       // very-low-income waiver band
+            valuePerChild: [0, 10000, 20000, 30000],
+          },
+          // Section 8 / HCV — HUD FY2026 FMR + 50% AMI, Dallas-Plano-Irving MSA.
+          // https://www.huduser.gov/portal/datasets/fmr.html
+          // https://www.huduser.gov/portal/datasets/il.html
+          housing: {
+            incomeLimitAnnual: 54000,     // 50% AMI Dallas family of 4
+            paymentStandardMonthly: 2100, // 3BR Dallas
+            tenantShareRate: 0.30,
+          },
+        },
+        NC: {
+          supported: true,
+          label: 'North Carolina',
+          // SNAP: NC does NOT use BBCE as of FY2026 — federal default 130% FPL gross limit.
+          // https://www.fns.usda.gov/snap/broad-based-categorical-eligibility
+          snap: {
+            grossLimitFPL: 1.30,
+          },
+          // Medicaid: NC expanded December 2023. Adults eligible to 138% FPL.
+          // CHIP (NC Health Choice consolidated into Medicaid): children to 211% FPL.
+          // https://medicaid.ncdhhs.gov/
+          // https://www.kff.org/medicaid/state-indicator/medicaid-income-eligibility-limits/
+          medicaid: {
+            expanded: true,
+            expansionFPL: 1.38,
+            childrenFPL: 2.11,
+          },
+          // ACA: SLCSP benchmark — Raleigh-Durham / Charlotte representative values, FY2026.
+          // NC marketplace benchmarks run slightly higher than OH (fewer insurers in rural counties).
+          // https://www.kff.org/interactive/subsidy-calculator/
+          aca: {
+            slcspMonthly: { 1: 720, 2: 1440, 3: 1800, 4: 2160, 5: 2700, 6: 3240 },
+          },
+          // NC Subsidized Child Care Assistance Program (SCCAP) — NC DHHS DCDEE.
+          // Entry 200% FPL statewide baseline; continuation to 85% SMI (~285% FPL family of 4).
+          // Copay sliding 9–10% of gross; modeled as ~10% average.
+          // https://ncchildcare.ncdhhs.gov/Home/Work-With-Parents/Financial-Assistance
+          childcare: {
+            subsidyName: 'SCCAP',  // Subsidized Child Care Assistance Program
+            entryFPL: 2.00,
+            exitFPL: 2.85,            // 85% SMI ≈ 285% FPL for family of 4 (approx — see TX note)
+            coPayRate: 0.10,          // sliding average — NC SCCAP 2026
+            coPayFreeFPL: 1.00,       // waiver at/below poverty
+            valuePerChild: [0, 9500, 19000, 28500],
+          },
+          // Section 8 / HCV — HUD FY2026 FMR + 50% AMI, Raleigh-Cary MSA.
+          housing: {
+            incomeLimitAnnual: 52000,     // 50% AMI Raleigh family of 4
+            paymentStandardMonthly: 1800, // 3BR Raleigh
+            tenantShareRate: 0.30,
+          },
+        },
+        MI: {
+          supported: true,
+          label: 'Michigan',
+          // SNAP: Michigan uses BBCE at 200% FPL gross limit — MDHHS.
+          // https://www.fns.usda.gov/snap/broad-based-categorical-eligibility
+          snap: {
+            grossLimitFPL: 2.00,
+          },
+          // Medicaid: Healthy Michigan Plan (expanded 2014). Adults eligible to 138% FPL.
+          // MIChild/CHIP covers children to 212% FPL.
+          // https://www.michigan.gov/mdhhs/assistance-programs/medicaid
+          medicaid: {
+            expanded: true,
+            expansionFPL: 1.38,
+            childrenFPL: 2.12,
+          },
+          // ACA: SLCSP benchmark — Detroit-Warren-Dearborn representative values, FY2026.
+          // Detroit marketplace is competitive — benchmarks run below the OH/NC range.
+          // https://www.kff.org/interactive/subsidy-calculator/
+          aca: {
+            slcspMonthly: { 1: 620, 2: 1240, 3: 1550, 4: 1860, 5: 2325, 6: 2790 },
+          },
+          // MDHHS Child Development and Care (CDC) scholarship — MI expanded eligibility 2024.
+          // Entry 200% FPL; continuation to 85% SMI (~285% FPL family of 4).
+          // Copay sliding with poverty-band waiver; modeled as ~8% average.
+          // https://www.michigan.gov/mdhhs/assistance-programs/childcare
+          childcare: {
+            subsidyName: 'CDC',  // Child Development and Care scholarship
+            entryFPL: 2.00,
+            exitFPL: 2.85,            // 85% SMI ≈ 285% FPL for family of 4 (approx — see TX note)
+            coPayRate: 0.08,          // sliding average — MDHHS CDC 2026
+            coPayFreeFPL: 1.00,       // waiver at/below poverty
+            valuePerChild: [0, 10000, 20000, 29000],
+          },
+          // Section 8 / HCV — HUD FY2026 FMR + 50% AMI, Detroit-Warren-Dearborn MSA.
+          // Detroit FMR notably lower than other large metros.
+          housing: {
+            incomeLimitAnnual: 48000,     // 50% AMI Detroit family of 4
+            paymentStandardMonthly: 1600, // 3BR Detroit
+            tenantShareRate: 0.30,
+          },
+        },
+      };
+
+      function getState(stateCode) {
+        const state = STATES[stateCode];
+        if (state) return state;
+        // Defence-in-depth fallback. The UnsupportedStateMessage component
+        // (rendered ahead of the calculator surfaces) ensures users never
+        // SEE these fallback numbers, but engine callers (e.g. validateDemo
+        // assertions, future tests) still get a coherent state object.
+        if (globalThis.process?.env?.NODE_ENV !== 'production') {
+          console.warn(`[CliffCheck] getState fallback: unsupported stateCode "${stateCode}", returning OH`);
+        }
+        return STATES.OH;
+      }
+
+      // Whether a stateCode resolves to a fully-supported state. UI consumers
+      // that render dollar values must gate on this to avoid showing OH
+      // numbers for an unsupported state code (deeplinks, persisted profiles
+      // from a removed state, manual URL params).
+      function isSupportedState(stateCode) {
+        return !!(STATES[stateCode] && STATES[stateCode].supported);
+      }
+
+      // Supported states for UI selector, ordered by code for predictable menu order.
+      function getSupportedStates() {
+        return Object.entries(STATES)
+          .filter(([, s]) => s.supported)
+          .map(([code, s]) => ({ code, label: s.label }))
+          .sort((a, b) => a.label.localeCompare(b.label));
+      }
+
+      // ── SNAP ───────────────────────────────────────────────────────────────
+      // Graduated phase-out — not a binary cliff. $0.30 reduction per $1 net income.
+      // Two binding tests:
+      //   1) Gross test — household-state's gross limit (130% FPL federal default; 165–200% FPL in BBCE states).
+      //   2) Net test — 100% FPL after standard, earned-income, and excess-shelter deductions.
+      // BBCE waives the asset test and raises the gross limit but NEVER waives the net test.
+      function calcSnap(annualIncome, familySize, opts) {
+        const { stateCode = 'OH', hasVoucher = false } = opts || {};
+        const state = getState(stateCode);
+        const fpl = getFPL(familySize);
+        const size = Math.min(Math.max(1, familySize), 6);
+        const grossMonthly = annualIncome / 12;
+
+        // Gross income test (state BBCE limit)
+        if (annualIncome > fpl * state.snap.grossLimitFPL) return 0;
+
+        const stdDed = FED.snap.stdDeduction[size];
+        const eid = grossMonthly * FED.snap.eidRate;
+        const adjusted = Math.max(0, grossMonthly - stdDed - eid);
+
+        // Excess shelter deduction — shelter cost above 50% of adjusted income, capped.
+        // Section 8 voucher holders pay only their tenant share (~30% of income), already
+        // covered by housing assistance — modeled with shelter ≈ 0 to avoid double-counting.
+        const shelterMonthly = hasVoucher ? 0 : grossMonthly * FED.snap.shelterProxyShare;
+        const halfAdjusted   = adjusted * 0.5;
+        const excessShelter  = Math.min(
+          FED.snap.excessShelterCap,
+          Math.max(0, shelterMonthly - halfAdjusted)
+        );
+
+        const netMonthly = Math.max(0, adjusted - excessShelter);
+
+        // Net income test (federal 100% FPL — applies to all households, including BBCE)
+        const netLimit = (fpl * FED.snap.netLimitFPL) / 12;
+        if (netMonthly > netLimit) return 0;
+
+        const maxBenefit = FED.snap.maxMonthlyBenefit[size];
+        const monthly = Math.max(0, maxBenefit - Math.round(netMonthly * FED.snap.benefitReductionRate));
+        return monthly * 12;
+      }
+
+      // ── ACA applicable percentage (piecewise linear interpolation) ─────────
+      function _acaApplicablePct(fplFraction) {
+        const t = FED.aca.pctTable;
+        if (fplFraction <= t[0][0]) return t[0][1];
+        if (fplFraction >= t[t.length - 1][0]) return t[t.length - 1][1];
+        for (let i = 1; i < t.length; i++) {
+          if (fplFraction <= t[i][0]) {
+            const [x0, y0] = t[i - 1], [x1, y1] = t[i];
+            return y0 + (y1 - y0) * (fplFraction - x0) / (x1 - x0);
+          }
+        }
+        return t[t.length - 1][1];
+      }
+
+      // ── ACA Premium Cost (annual expense, positive value) ──────────────────
+      // Hard cliff at 400% FPL: below = subsidised; above = full premium.
+      function calcACAPremium(annualIncome, familySize, opts) {
+        const { stateCode = 'OH' } = opts || {};
+        const state = getState(stateCode);
+        const fpl = getFPL(familySize);
+        const fplFraction = annualIncome / fpl;
+        const size = Math.min(Math.max(1, familySize), 6);
+        const slcsp = state.aca.slcspMonthly;
+        const slcspAnnual = (slcsp[size] || slcsp[6]) * 12;
+
+        // Below 100% FPL → Medicaid; no ACA cost
+        if (fplFraction < FED.aca.eligibleFPLMin) return 0;
+        // Above 400% FPL → no PTC; pay full premium (hard cliff). At exactly 400% PTC still applies.
+        if (fplFraction > FED.aca.cliffFPL) return slcspAnnual;
+
+        const contribution = Math.round(annualIncome * _acaApplicablePct(fplFraction));
+        return Math.min(contribution, slcspAnnual);
+      }
+
+      // ── ACA Cost-Sharing Reduction (annual effective value, positive) ──────
+      // CSR reduces cost-sharing (deductible/copay/OOP-max) for Silver-plan
+      // enrollees below 250% FPL. Modelled as an additive *effective value*
+      // (annual avoided out-of-pocket cost), distinct from the premium tax
+      // credit handled by calcACAPremium. Eligibility mirrors PTC: only when
+      // the household is on the marketplace (i.e. acaCost > 0 in the
+      // orchestrator), so calcEffectiveTakeHome gates this call. Returns 0
+      // outside the CSR window (<100% FPL Medicaid, ≥250% FPL no CSR, >400%
+      // FPL premium cliff). Silver plan assumed (federal benchmark default).
+      function calcACACSR(annualIncome, familySize) {
+        const fpl = getFPL(familySize);
+        const fplFraction = annualIncome / fpl;
+        if (fplFraction < FED.aca.eligibleFPLMin) return 0;
+        const tier = FED.aca.csr.tiers.find(t => fplFraction <= t.maxFPL);
+        if (!tier) return 0;
+        const size = Math.min(Math.max(1, familySize), 6);
+        return tier.perEnrolleeAnnual * size;
+      }
+
+      // ── Medicaid eligibility check (boolean) ───────────────────────────────
+      // Expansion states: adults eligible ≤ expansionFPL.
+      // Non-expansion states: parentFPL when household has children, childlessAdultFPL when not.
+      function isOnMedicaid(annualIncome, familySize, opts) {
+        const { stateCode = 'OH', adultCount = 2 } = opts || {};
+        const state = getState(stateCode);
+        const fplFraction = annualIncome / getFPL(familySize);
+        if (state.medicaid.expanded) {
+          return fplFraction <= state.medicaid.expansionFPL;
+        }
+        // Non-expansion branch: treat adults as parents if household has any children,
+        // otherwise as childless. Texas and similar states distinguish sharply between
+        // the two (e.g. TX: 18% FPL parents, 0% FPL childless adults).
+        const numChildren = Math.max(0, familySize - Math.max(1, Number(adultCount)));
+        const threshold = numChildren > 0
+          ? (state.medicaid.parentFPL ?? 0)
+          : (state.medicaid.childlessAdultFPL ?? 0);
+        return fplFraction <= threshold;
+      }
+
+      // ── Medicaid Value (annual dollar proxy for free coverage) ─────────────
+      // Value proxy = avoided insurance cost (adults × adultAnnualValueProxy).
+      function calcMedicaidValue(annualIncome, familySize, opts) {
+        const { stateCode = 'OH', adultCount = 2 } = opts || {};
+        if (!isOnMedicaid(annualIncome, familySize, { stateCode, adultCount })) return 0;
+        const adults = Math.max(1, Math.min(adultCount, familySize));
+        return adults * FED.medicaid.adultAnnualValueProxy;
+      }
+
+      // ── Childcare Subsidy ──────────────────────────────────────────────────
+      // Entry cliff at state.childcare.entryFPL. Enrolled families exit at exitFPL.
+      // numChildren = familySize - adultCount (supports single-parent households).
+      function calcChildcareSubsidy(annualIncome, familySize, opts) {
+        const { stateCode = 'OH', pfccEnrolled = false, adultCount = 2 } = opts || {};
+        const state = getState(stateCode);
+        const cc = state.childcare;
+        const fpl = getFPL(familySize);
+        const fplFraction = annualIncome / fpl;
+        const numChildren = Math.max(0, familySize - adultCount);
+        const idx = Math.min(numChildren, cc.valuePerChild.length - 1);
+        const grossValue = cc.valuePerChild[idx];
+
+        if (grossValue === 0) return 0;
+
+        // Entry: ≤ entryFPL. Continuation for enrolled: ≤ exitFPL.
+        const eligible = fplFraction <= cc.entryFPL ||
+                         (pfccEnrolled && fplFraction <= cc.exitFPL);
+        if (!eligible) return 0;
+
+        const coPay = fplFraction <= cc.coPayFreeFPL
+          ? 0
+          : Math.round(annualIncome * cc.coPayRate);
+        return Math.max(0, grossValue - coPay);
+      }
+
+      // ── Section 8 / HCV Value ──────────────────────────────────────────────
+      // HUD sliding formula: subsidy = max(0, paymentStandard − tenantShare),
+      // where tenantShare = 30% of monthly adjusted gross income. Zero above the state
+      // income limit (50% AMI) or when the household has no voucher.
+      function calcSection8Value(annualIncome, familySize, opts) {
+        const { stateCode = 'OH', hasVoucher = false } = opts || {};
+        const state = getState(stateCode);
+        const h = state.housing;
+        if (!hasVoucher) return 0;
+        if (annualIncome > h.incomeLimitAnnual) return 0;
+        const tenantShare = (annualIncome / 12) * h.tenantShareRate;
+        return Math.max(0, Math.round((h.paymentStandardMonthly - tenantShare) * 12));
+      }
+
+      // ── Federal EITC ───────────────────────────────────────────────────────
+      // Three-region piecewise: phase-in (linear up to maxCredit), plateau (flat),
+      // phase-out (linear down to zero). Uses earned income for phase-in; phase-out
+      // uses max(earned, AGI) per IRS — for our wage-only model, earned == AGI.
+      // numChildren derived from familySize - adultCount, clamped to 0–3+.
+      // Filing status derived from adultCount: 2 = MFJ, 1 = single (head-of-household
+      // EITC parameters match single, so we collapse them).
+      function calcFederalEITC(annualIncome, familySize, opts) {
+        const { adultCount = 2 } = opts || {};
+        const numChildren = Math.max(0, Math.min(3, familySize - adultCount));
+        const isMFJ = adultCount >= 2;
+        const p = FED.eitc[numChildren];
+        if (!p || annualIncome <= 0) return 0;
+
+        // Phase-in: linear from $0 up to earnedAmt.
+        if (annualIncome <= p.earnedAmt) {
+          return Math.round(annualIncome * p.phaseInRate);
+        }
+        // Phase-out: starts at phaseOutStart{Single|MFJ}, ends when credit hits zero.
+        const phaseOutStart = isMFJ ? p.phaseOutStartMFJ : p.phaseOutStartSingle;
+        if (annualIncome > phaseOutStart) {
+          const reduction = (annualIncome - phaseOutStart) * p.phaseOutRate;
+          return Math.max(0, Math.round(p.maxCredit - reduction));
+        }
+        // Plateau: flat at max credit between earnedAmt and phaseOutStart.
+        return p.maxCredit;
+      }
+
+      // ── State Income Tax ───────────────────────────────────────────────────
+      // Per-state flat-tax model, gated on STATES.XX.incomeTax presence. States
+      // without an incomeTax block return 0 (TX has no income tax; NC/MI use
+      // bracketed structures not yet modelled). Currently only OH is wired up.
+      // Modelled on gross wages as a proxy for state AGI (user input doesn't
+      // capture itemised deductions). Returned as a positive owed amount; the
+      // orchestrator subtracts from totalEffective alongside ACA premium cost.
+      function calcStateIncomeTax(annualIncome, opts) {
+        const { stateCode = 'OH' } = opts || {};
+        const state = getState(stateCode);
+        const tax = state.incomeTax;
+        if (!tax) return 0;
+        if (annualIncome <= tax.noTaxFloor) return 0;
+        return Math.round((annualIncome - tax.noTaxFloor) * tax.flatRate);
+      }
+
+      // ── Effective Take-Home ────────────────────────────────────────────────
+      // Returns breakdown + totalEffective for any income across all programs.
+      // opts: { stateCode, pfccEnrolled, hasVoucher, adultCount, employerHealthInsurance, matchRate,
+      //         hsaContribution, pretax401k }
+      // employerHealthInsurance=true short-circuits ACA premium math entirely.
+      // matchRate (% of salary) is added to totalEffective only — not to annualIncome.
+      // hsaContribution + pretax401k reduce MAGI for ACA and Medicaid only.
+      // SNAP uses gross income (federal eligibility rule — NOT MAGI-based).
+      // EITC, Section 8, childcare, and state income tax also use gross wages.
+      // IRS MAGI for ACA/Medicaid: AGI = gross wages − pre-tax 401(k) − HSA contributions.
+      // Source: IRS Pub 969 (HSA), IRS Pub 525 (401k elective deferrals), healthcare.gov MAGI definition.
+      function calcEffectiveTakeHome(annualIncome, familySize, opts) {
+        const {
+          stateCode = 'OH',
+          pfccEnrolled = false,
+          hasVoucher = false,
+          adultCount = 2,
+          employerHealthInsurance = false,
+          matchRate = 0,
+          hsaContribution = 0,
+          pretax401k = 0,
+        } = opts || {};
+        // MAGI used for ACA and Medicaid only — SNAP/EITC/Section8/childcare use gross.
+        const magi = Math.max(0, annualIncome - Math.max(0, Number(hsaContribution) || 0) - Math.max(0, Number(pretax401k) || 0));
+        const calcOpts = { stateCode, pfccEnrolled, hasVoucher, adultCount };
+        const onMedicaid = isOnMedicaid(magi, familySize, calcOpts);
+
+        const snapValue      = calcSnap(annualIncome, familySize, calcOpts);
+        const medicaidValue  = onMedicaid ? calcMedicaidValue(magi, familySize, calcOpts) : 0;
+        const onMarketplace  = !onMedicaid && !employerHealthInsurance;
+        const acaCost        = onMarketplace ? calcACAPremium(magi, familySize, calcOpts) : 0;
+        const acaCSRValue    = onMarketplace ? calcACACSR(magi, familySize) : 0;
+        const section8Value  = calcSection8Value(annualIncome, familySize, calcOpts);
+        const childcareValue = calcChildcareSubsidy(annualIncome, familySize, calcOpts);
+        const eitcValue      = calcFederalEITC(annualIncome, familySize, calcOpts);
+        const stateTaxOwed   = calcStateIncomeTax(annualIncome, calcOpts);
+        const matchPct       = Math.max(0, Number(matchRate) || 0);
+        const matchValue     = Math.round((matchPct / 100) * annualIncome);
+        const magiReduction  = annualIncome - magi;
+
+        const totalEffective = Math.round(
+          annualIncome + snapValue + medicaidValue + section8Value + childcareValue + eitcValue + acaCSRValue + matchValue - acaCost - stateTaxOwed
+        );
+
+        return { grossWages: annualIncome, magi, magiReduction, snapValue, medicaidValue, acaCost, acaCSRValue,
+                 section8Value, childcareValue, eitcValue, stateTaxOwed, matchValue, totalEffective };
+      }
+
+      // ── Cliff Chart Data ───────────────────────────────────────────────────
+      // 121 points: $0 to $120,000 in $1,000 increments.
+      // opts: same as calcEffectiveTakeHome
+      function getCliffChartData(familySize, opts) {
+        const points = [];
+        for (let income = 0; income <= 120000; income += 1000) {
+          points.push({ income, ...calcEffectiveTakeHome(income, familySize, opts) });
+        }
+        return points;
+      }
+
+      // ── URL hash <-> profile (share-via-URL) ─────────────────────────────
+      // Short, human-readable keys so a shared link is glanceable. Bumping `v`
+      // invalidates older links cleanly via the version guard in parseProfileHash.
+      const PROFILE_URL_SCHEMA = [
+        { key: 's',   field: 'stateCode',                type: 'string' },
+        { key: 'fs',  field: 'familySize',               type: 'int'    },
+        { key: 'ci',  field: 'currentIncome',            type: 'int'    },
+        { key: 'oi',  field: 'offeredIncome',            type: 'int'    },
+        { key: 'ac',  field: 'adultCount',               type: 'int'    },
+        { key: 's8',  field: 'hasSection8Voucher',       type: 'bool'   },
+        { key: 'pf',  field: 'pfccEnrolled',             type: 'bool'   },
+        { key: 'eh',  field: 'employerHealthInsurance',  type: 'bool'   },
+        { key: 'mr',  field: 'matchRate',                type: 'int'    },
+        { key: 'hsa', field: 'hsaContribution',          type: 'int'    },
+        { key: 'k',   field: 'pretax401k',               type: 'int'    },
+      ];
+      const PROFILE_URL_VERSION = '1';
+
+      function encodeProfileHash(row) {
+        const params = new URLSearchParams();
+        for (const { key, field, type } of PROFILE_URL_SCHEMA) {
+          const v = row?.[field];
+          if (v === undefined || v === null) continue;
+          if (type === 'bool') params.set(key, v ? '1' : '0');
+          else params.set(key, String(v));
+        }
+        params.set('v', PROFILE_URL_VERSION);
+        return params.toString();
+      }
+
+      function parseProfileHash(hashStr) {
+        const raw = (hashStr || '').replace(/^#/, '');
+        if (!raw) return null;
+        const params = new URLSearchParams(raw);
+        if (params.get('v') !== PROFILE_URL_VERSION) {
+          if (globalThis.process?.env?.NODE_ENV !== 'production') {
+            console.warn('[CliffCheck] URL hash version missing or unsupported, falling back to defaults', { got: params.get('v'), expected: PROFILE_URL_VERSION });
+          }
+          return null;
+        }
+        const out = {};
+        for (const { key, field, type } of PROFILE_URL_SCHEMA) {
+          if (!params.has(key)) continue;
+          const value = params.get(key);
+          if (type === 'bool') {
+            out[field] = value === '1';
+          } else if (type === 'int') {
+            const n = parseInt(value, 10);
+            if (Number.isNaN(n)) {
+              if (globalThis.process?.env?.NODE_ENV !== 'production') {
+                console.warn(`[CliffCheck] URL hash invalid int for ${field}, skipping`, { value });
+              }
+              continue;
+            }
+            out[field] = n;
+          } else {
+            out[field] = value;
+          }
+        }
+        return Object.keys(out).length ? out : null;
+      }
+
+      // ── Demo Scenario Validation ───────────────────────────────────────────
+      // Ohio warehouse worker: family of 4, current wages $44K, offered $70K.
+      // $44K is the demo wage where SNAP + Medicaid + PFCC childcare are all
+      // active simultaneously (above $54K, most Ohio benefits have already
+      // thresholded out).
+      (function validateDemoScenario() {
+        // Case 1: Two-adult, two-child household (default scenario)
+        const current = calcEffectiveTakeHome(44000, 4, { adultCount: 2 });
+        const offered  = calcEffectiveTakeHome(70000, 4, { adultCount: 2 });
+        const netDiff  = offered.totalEffective - current.totalEffective;
+
+        // currentEffective ~$74,413 — wages + SNAP($2,184) + Medicaid($4,500) + PFCC($19,920) + EITC($4,303) − OH state tax ($494)
+        // (with task-83 federal EITC modelling — TY2025 IRS Rev. Proc. 2024-40, task-84 OH flat tax HB 96 2025)
+        console.assert(current.totalEffective >= 72000 && current.totalEffective <= 78000,
+          'Demo current effective out of range', current.totalEffective);
+
+        // netDiff ~-$9,754 — the $26K raise leaves the household ~$10K worse off
+        // (EITC phase-out + larger OH tax bill at offered, partial offset by ACA CSR at 200–250% FPL)
+        console.assert(netDiff >= -12000 && netDiff <= -6000,
+          'Demo netDiff out of range', netDiff);
+
+        // EITC at $44k for 2-child MFJ family should be in phase-out (max $7,152 plateau, falling)
+        console.assert(current.eitcValue > 3000 && current.eitcValue < 6000,
+          'Demo EITC at $44K MFJ 2-child should be mid-phase-out', current.eitcValue);
+
+        // safeExit pushed higher because EITC adds to current's denominator while offered's EITC is 0
+        let safeExit = null;
+        for (let i = 70000; i <= 120000; i += 1000) {
+          if (calcEffectiveTakeHome(i, 4, { adultCount: 2 }).totalEffective > current.totalEffective + 2000) {
+            safeExit = i;
+            break;
+          }
+        }
+        console.assert(safeExit >= 80000 && safeExit <= 95000,
+          'Demo safeExit out of range', safeExit);
+
+        console.log('[CliffCheck] Demo (2-adult) PASSED', {
+          currentEffective: current.totalEffective,
+          offeredEffective: offered.totalEffective,
+          netDiff,
+          safeExit,
+        });
+
+        // Case 2: Single-parent — family of 4, 1 adult, 3 children
+        // SNAP allotment should be higher (more children), childcare covers 3 kids
+        const spCurrent = calcEffectiveTakeHome(44000, 4, { adultCount: 1 });
+        // Medicaid value should be 1 adult proxy ($2,250) not 2 ($4,500)
+        console.assert(spCurrent.medicaidValue === FED.medicaid.adultAnnualValueProxy,
+          'Single-parent Medicaid should be 1-adult proxy', spCurrent.medicaidValue);
+        // PFCC childcare should cover 3 children (idx=3, $33,000 gross value)
+        console.assert(spCurrent.childcareValue > 20000,
+          'Single-parent childcare should cover 3 children', spCurrent.childcareValue);
+        console.log('[CliffCheck] Single-parent (1-adult) PASSED', {
+          currentEffective: spCurrent.totalEffective,
+          medicaidValue: spCurrent.medicaidValue,
+          childcareValue: spCurrent.childcareValue,
+        });
+
+        // Case 3: Voucher holder — family of 3, $30K income
+        // Subsidy should be positive and decline as income rises
+        const vCurrent = calcEffectiveTakeHome(30000, 3, { adultCount: 2, hasVoucher: true });
+        const vHigher  = calcEffectiveTakeHome(50000, 3, { adultCount: 2, hasVoucher: true });
+        console.assert(vCurrent.section8Value > 0,
+          'Voucher holder at $30K should have positive subsidy', vCurrent.section8Value);
+        console.assert(vHigher.section8Value < vCurrent.section8Value,
+          'Voucher subsidy should decline as income rises', { low: vCurrent.section8Value, high: vHigher.section8Value });
+        console.log('[CliffCheck] Section 8 voucher PASSED', {
+          at30k: vCurrent.section8Value,
+          at50k: vHigher.section8Value,
+        });
+
+        // Case 4: Texas — non-expansion Medicaid, BBCE 165% FPL.
+        // Family of 4, 2 adults, $44K wages. At 133% FPL → above TX parentFPL (18%),
+        // so Medicaid is 0 and ACA premium tax credit applies.
+        const txCurrent = calcEffectiveTakeHome(44000, 4, { stateCode: 'TX', adultCount: 2 });
+        console.assert(txCurrent.medicaidValue === 0,
+          'TX non-expansion: family at 133% FPL should have Medicaid=0', txCurrent.medicaidValue);
+        console.assert(txCurrent.snapValue > 1500 && txCurrent.snapValue < 3000,
+          'TX SNAP at $44K/4 should be in Ohio-comparable range', txCurrent.snapValue);
+        console.assert(txCurrent.acaCost > 800 && txCurrent.acaCost < 2500,
+          'TX ACA cost at 133% FPL should be ~3.14% of income', txCurrent.acaCost);
+        // CSR: TX non-expansion family of 4 at 133% FPL is on the marketplace and
+        // qualifies for the 94% AV CSR tier (≤150% FPL) → $1,400/enrollee × 4 = $5,600.
+        console.assert(txCurrent.acaCSRValue === 5600,
+          'TX at 133% FPL on marketplace should get 94% AV CSR ($1,400 × 4)', txCurrent.acaCSRValue);
+        console.assert(txCurrent.childcareValue > 10000,
+          'TX childcare at $44K (below 200% entry) should be positive for 2 kids', txCurrent.childcareValue);
+        console.assert(txCurrent.totalEffective > 60000 && txCurrent.totalEffective < 78000,
+          'TX total effective at $44K/4 out of range (now includes CSR uplift)', txCurrent.totalEffective);
+        console.log('[CliffCheck] Texas (non-expansion, family-of-4) PASSED', {
+          totalEffective: txCurrent.totalEffective,
+          snapValue: txCurrent.snapValue,
+          medicaidValue: txCurrent.medicaidValue,
+          acaCost: txCurrent.acaCost,
+          acaCSRValue: txCurrent.acaCSRValue,
+          childcareValue: txCurrent.childcareValue,
+        });
+
+        // Case 5: Texas childless couple — family of 2, 2 adults, $15K.
+        // childlessAdultFPL = 0 in TX, so no Medicaid regardless of income.
+        const txChildless = calcEffectiveTakeHome(15000, 2, { stateCode: 'TX', adultCount: 2 });
+        console.assert(txChildless.medicaidValue === 0,
+          'TX childless couple should have Medicaid=0 even at low income', txChildless.medicaidValue);
+        console.log('[CliffCheck] Texas childless-couple (non-expansion) PASSED', {
+          medicaidValue: txChildless.medicaidValue,
+          totalEffective: txChildless.totalEffective,
+        });
+
+        // Case 6: North Carolina — recent-expansion state without BBCE.
+        // Family of 4, 2 adults, $44K wages. NC has federal-default 130% FPL gross limit →
+        // SNAP = 0 at 133% FPL. Medicaid expansion active → adults eligible at 138% FPL.
+        const ncCurrent = calcEffectiveTakeHome(44000, 4, { stateCode: 'NC', adultCount: 2 });
+        console.assert(ncCurrent.snapValue === 0,
+          'NC (no BBCE, 130% FPL gross): family at 133% FPL should have SNAP=0', ncCurrent.snapValue);
+        console.assert(ncCurrent.medicaidValue === 2 * FED.medicaid.adultAnnualValueProxy,
+          'NC expansion: family at 133% FPL should have Medicaid for 2 adults', ncCurrent.medicaidValue);
+        console.assert(ncCurrent.acaCost === 0,
+          'NC: on Medicaid → no ACA cost', ncCurrent.acaCost);
+        console.assert(ncCurrent.childcareValue > 10000,
+          'NC childcare at $44K (below 200% entry) should be positive for 2 kids', ncCurrent.childcareValue);
+        console.assert(ncCurrent.totalEffective > 53000 && ncCurrent.totalEffective < 72000,
+          'NC total effective at $44K/4 out of range', ncCurrent.totalEffective);
+        console.log('[CliffCheck] North Carolina (expansion, family-of-4) PASSED', {
+          totalEffective: ncCurrent.totalEffective,
+          snapValue: ncCurrent.snapValue,
+          medicaidValue: ncCurrent.medicaidValue,
+          acaCost: ncCurrent.acaCost,
+          childcareValue: ncCurrent.childcareValue,
+        });
+
+        // Case 7: Michigan — expansion state with BBCE at 200% FPL (like OH).
+        // Family of 4, 2 adults, $44K wages. Combines OH's SNAP profile with MI's Detroit-lower ACA/housing.
+        const miCurrent = calcEffectiveTakeHome(44000, 4, { stateCode: 'MI', adultCount: 2 });
+        console.assert(miCurrent.snapValue > 1500 && miCurrent.snapValue < 3000,
+          'MI SNAP at $44K/4 (BBCE 200% FPL) should be in OH-comparable range', miCurrent.snapValue);
+        console.assert(miCurrent.medicaidValue === 2 * FED.medicaid.adultAnnualValueProxy,
+          'MI expansion: family at 133% FPL should have Medicaid for 2 adults', miCurrent.medicaidValue);
+        console.assert(miCurrent.acaCost === 0,
+          'MI: on Medicaid → no ACA cost', miCurrent.acaCost);
+        console.assert(miCurrent.childcareValue > 10000,
+          'MI childcare at $44K (below 200% entry) should be positive for 2 kids', miCurrent.childcareValue);
+        console.assert(miCurrent.totalEffective > 58000 && miCurrent.totalEffective < 79000,
+          'MI total effective at $44K/4 out of range', miCurrent.totalEffective);
+        console.log('[CliffCheck] Michigan (expansion, family-of-4) PASSED', {
+          totalEffective: miCurrent.totalEffective,
+          snapValue: miCurrent.snapValue,
+          medicaidValue: miCurrent.medicaidValue,
+          acaCost: miCurrent.acaCost,
+          childcareValue: miCurrent.childcareValue,
+        });
+
+        // Case 8: Cross-state regression — OH, TX, NC unchanged after MI addition.
+        const ohRegress = calcEffectiveTakeHome(44000, 4, { stateCode: 'OH', adultCount: 2 });
+        console.assert(ohRegress.totalEffective === current.totalEffective,
+          'OH scenario must be unchanged after MI addition', { before: current.totalEffective, after: ohRegress.totalEffective });
+        const txRegress = calcEffectiveTakeHome(44000, 4, { stateCode: 'TX', adultCount: 2 });
+        console.assert(txRegress.totalEffective === txCurrent.totalEffective,
+          'TX scenario must be unchanged after MI addition', { before: txCurrent.totalEffective, after: txRegress.totalEffective });
+        const ncRegress = calcEffectiveTakeHome(44000, 4, { stateCode: 'NC', adultCount: 2 });
+        console.assert(ncRegress.totalEffective === ncCurrent.totalEffective,
+          'NC scenario must be unchanged after MI addition', { before: ncCurrent.totalEffective, after: ncRegress.totalEffective });
+
+        // Case 8b: ACA CSR three-tier piecewise — HHS NBPP 2026, 45 CFR 156.420.
+        // CSR uplift only applies to marketplace enrollees (not Medicaid, not employer).
+        // TX non-expansion family of 4, $44k = 134% FPL → tier 1 (≤150%): $1,400 × 4 = $5,600.
+        const csr94 = calcACACSR(44000, 4);
+        console.assert(csr94 === 5600,
+          'CSR 94% AV: family of 4 at 134% FPL should be $1,400 × 4 = $5,600', csr94);
+        // Tier 2 (150-200%): TX family of 4 at $60K (182% FPL) → $900 × 4 = $3,600.
+        const csr87 = calcACACSR(60000, 4);
+        console.assert(csr87 === 3600,
+          'CSR 87% AV: family of 4 at 182% FPL should be $900 × 4 = $3,600', csr87);
+        // Tier 3 (200-250%): TX family of 4 at $75K (228% FPL) → $200 × 4 = $800.
+        const csr73 = calcACACSR(75000, 4);
+        console.assert(csr73 === 800,
+          'CSR 73% AV: family of 4 at 228% FPL should be $200 × 4 = $800', csr73);
+        // Above 250% FPL: no CSR.
+        const csrNone = calcACACSR(100000, 4);
+        console.assert(csrNone === 0,
+          'CSR: family of 4 at 304% FPL (above 250%) should be 0', csrNone);
+        // Below 100% FPL: no CSR (Medicaid territory).
+        const csrSubFPL = calcACACSR(10000, 4);
+        console.assert(csrSubFPL === 0,
+          'CSR: family of 4 below 100% FPL should be 0 (Medicaid territory)', csrSubFPL);
+        // Orchestrator gating: OH family of 4 at $44k IS on Medicaid → orchestrator returns 0 acaCSRValue
+        const csrOH = calcEffectiveTakeHome(44000, 4, { stateCode: 'OH', adultCount: 2 });
+        console.assert(csrOH.acaCSRValue === 0,
+          'OH at $44k on Medicaid → orchestrator should suppress CSR', csrOH.acaCSRValue);
+        // Orchestrator gating: TX family of 4 at $44k NOT on Medicaid → orchestrator passes CSR
+        const csrTX = calcEffectiveTakeHome(44000, 4, { stateCode: 'TX', adultCount: 2 });
+        console.assert(csrTX.acaCSRValue === 5600,
+          'TX at $44k on marketplace → orchestrator should pass CSR through', csrTX.acaCSRValue);
+        // Employer-insured short-circuit: even on marketplace-eligible income, CSR suppressed.
+        const csrEmployer = calcEffectiveTakeHome(44000, 4, { stateCode: 'TX', adultCount: 2, employerHealthInsurance: true });
+        console.assert(csrEmployer.acaCSRValue === 0,
+          'TX with employer insurance → orchestrator should suppress CSR', csrEmployer.acaCSRValue);
+        console.log('[CliffCheck] ACA CSR (HHS NBPP 2026) PASSED', {
+          tier94_134pctFPL: csr94,
+          tier87_182pctFPL: csr87,
+          tier73_228pctFPL: csr73,
+          above250pctFPL: csrNone,
+          medicaidGated_OH: csrOH.acaCSRValue,
+          marketplace_TX: csrTX.acaCSRValue,
+          employerGated_TX: csrEmployer.acaCSRValue,
+        });
+
+        // Case 9: Federal EITC three-region piecewise — TY2025 IRS Rev. Proc. 2024-40.
+        // Phase-in: 2-child MFJ family at $10K earned should be in linear phase-in (40% rate)
+        const eitcPhaseIn = calcFederalEITC(10000, 4, { adultCount: 2 });
+        console.assert(eitcPhaseIn === 4000,
+          'EITC phase-in: 2-child MFJ at $10K should be $10K × 40% = $4,000', eitcPhaseIn);
+        // Plateau: 2-child MFJ at $25K should hit max credit ($7,152) — $25K is between earnedAmt ($17,880) and MFJ phase-out start ($30,470)
+        const eitcPlateau = calcFederalEITC(25000, 4, { adultCount: 2 });
+        console.assert(eitcPlateau === 7152,
+          'EITC plateau: 2-child MFJ at $25K should be max credit $7,152', eitcPlateau);
+        // Phase-out zero: 2-child MFJ at $65K should be fully phased out (zero ≈ $64,430)
+        const eitcZero = calcFederalEITC(65000, 4, { adultCount: 2 });
+        console.assert(eitcZero === 0,
+          'EITC phase-out: 2-child MFJ at $65K should be 0', eitcZero);
+        // Childless MFJ at $20K should still get a small EITC (max $649, phase-out start MFJ $17,730)
+        const eitcChildless = calcFederalEITC(20000, 2, { adultCount: 2 });
+        console.assert(eitcChildless > 0 && eitcChildless < 700,
+          'EITC childless MFJ at $20K should be small and positive', eitcChildless);
+        console.log('[CliffCheck] Federal EITC (TY2025) PASSED', {
+          phaseIn_2childMFJ_at10k: eitcPhaseIn,
+          plateau_2childMFJ_at25k: eitcPlateau,
+          zero_2childMFJ_at65k: eitcZero,
+          childless_MFJ_at20k: eitcChildless,
+        });
+
+        // Case 10: OH state income tax (HB 96 2025, flat 2.75% above $26,050).
+        // $44k → (44000 - 26050) × 0.0275 = $494.
+        const ohTaxAt44k = calcStateIncomeTax(44000, { stateCode: 'OH' });
+        console.assert(ohTaxAt44k === 494,
+          'OH state tax at $44k should be $494 ((44000-26050)*0.0275)', ohTaxAt44k);
+        // $70k → (70000 - 26050) × 0.0275 = $1,209.
+        const ohTaxAt70k = calcStateIncomeTax(70000, { stateCode: 'OH' });
+        console.assert(ohTaxAt70k === 1209,
+          'OH state tax at $70k should be $1,209 ((70000-26050)*0.0275)', ohTaxAt70k);
+        // Below the no-tax floor → 0.
+        const ohTaxBelowFloor = calcStateIncomeTax(20000, { stateCode: 'OH' });
+        console.assert(ohTaxBelowFloor === 0,
+          'OH state tax below $26,050 should be 0', ohTaxBelowFloor);
+        // Other states have no incomeTax block → 0.
+        const txTaxAt70k = calcStateIncomeTax(70000, { stateCode: 'TX' });
+        console.assert(txTaxAt70k === 0,
+          'TX has no state income tax → should be 0', txTaxAt70k);
+        const ncTaxAt70k = calcStateIncomeTax(70000, { stateCode: 'NC' });
+        console.assert(ncTaxAt70k === 0,
+          'NC not yet modelled → should be 0', ncTaxAt70k);
+        const miTaxAt70k = calcStateIncomeTax(70000, { stateCode: 'MI' });
+        console.assert(miTaxAt70k === 0,
+          'MI not yet modelled → should be 0', miTaxAt70k);
+        console.log('[CliffCheck] OH state tax (HB 96 flat 2.75%) PASSED', {
+          ohTaxAt44k, ohTaxAt70k, ohTaxBelowFloor, txTaxAt70k, ncTaxAt70k, miTaxAt70k,
+        });
+
+        // Case 11: Employer 401(k) match rate (% of salary).
+        // Default matchRate=0 should not shift demo totals (no regression on canonical OH demo).
+        const noMatch = calcEffectiveTakeHome(44000, 4, { adultCount: 2 });
+        console.assert(noMatch.matchValue === 0,
+          'matchRate default 0 should produce matchValue=0', noMatch.matchValue);
+        console.assert(noMatch.totalEffective === current.totalEffective,
+          'matchRate=0 must produce same totalEffective as canonical demo', { noMatch: noMatch.totalEffective, current: current.totalEffective });
+        // 4% match: $44k → $1,760, $70k → $2,800. Match scales with income.
+        const matchCurrent = calcEffectiveTakeHome(44000, 4, { adultCount: 2, matchRate: 4 });
+        console.assert(matchCurrent.matchValue === 1760,
+          'matchRate=4 at $44k should be $1,760', matchCurrent.matchValue);
+        const matchOffered = calcEffectiveTakeHome(70000, 4, { adultCount: 2, matchRate: 4 });
+        console.assert(matchOffered.matchValue === 2800,
+          'matchRate=4 at $70k should be $2,800', matchOffered.matchValue);
+        // Match must not shift benefit-eligibility thresholds — SNAP/Medicaid/EITC values
+        // identical with and without match (employer 401(k) is deferred comp, not earned income).
+        console.assert(matchCurrent.snapValue === current.snapValue,
+          'Match must not change SNAP value (deferred comp, not earned income)', { with: matchCurrent.snapValue, without: current.snapValue });
+        console.assert(matchCurrent.medicaidValue === current.medicaidValue,
+          'Match must not change Medicaid value', { with: matchCurrent.medicaidValue, without: current.medicaidValue });
+        console.assert(matchCurrent.eitcValue === current.eitcValue,
+          'Match must not change EITC value', { with: matchCurrent.eitcValue, without: current.eitcValue });
+        console.log('[CliffCheck] Employer 401(k) match (% of salary) PASSED', {
+          defaultMatchValue: noMatch.matchValue,
+          match4pct_at44k: matchCurrent.matchValue,
+          match4pct_at70k: matchOffered.matchValue,
+          benefitEligibilityUnchanged: true,
+        });
+
+        // Case 11: HSA / pre-tax 401(k) MAGI reduction — ACA + Medicaid affected, SNAP not.
+        // OH $44k: family on Medicaid → ACA suppressed regardless. Use TX $70k (on marketplace) to test ACA effect.
+        const txBase     = calcEffectiveTakeHome(70000, 4, { stateCode: 'TX', adultCount: 2 });
+        const txWithHSA  = calcEffectiveTakeHome(70000, 4, { stateCode: 'TX', adultCount: 2, hsaContribution: 5000 });
+        const txWith401k = calcEffectiveTakeHome(70000, 4, { stateCode: 'TX', adultCount: 2, pretax401k: 5000 });
+        // MAGI = $65k after $5k reduction → should improve ACA credits (lower cost or higher CSR)
+        console.assert(txWithHSA.magi === 65000,
+          'HSA $5k should reduce MAGI from $70k to $65k', { magi: txWithHSA.magi });
+        console.assert(txWith401k.magi === 65000,
+          'Pre-tax 401k $5k should reduce MAGI from $70k to $65k', { magi: txWith401k.magi });
+        // SNAP uses gross wages — must be unchanged
+        console.assert(txWithHSA.snapValue === txBase.snapValue,
+          'MAGI reduction must not change SNAP (gross income test)', { base: txBase.snapValue, withHSA: txWithHSA.snapValue });
+        // MAGI reduction should reduce ACA cost (better PTC) or improve CSR
+        console.assert(txWithHSA.acaCost <= txBase.acaCost,
+          'MAGI reduction via HSA should not increase ACA cost', { base: txBase.acaCost, withHSA: txWithHSA.acaCost });
+        // Default (zero) must not change anything vs base
+        const noReduction = calcEffectiveTakeHome(70000, 4, { stateCode: 'TX', adultCount: 2, hsaContribution: 0, pretax401k: 0 });
+        console.assert(noReduction.magi === 70000,
+          'Zero contributions must produce magi === annualIncome', { magi: noReduction.magi });
+        console.assert(noReduction.totalEffective === txBase.totalEffective,
+          'Zero contributions must not change totalEffective', { base: txBase.totalEffective, noReduction: noReduction.totalEffective });
+        console.log('[CliffCheck] HSA / pre-tax 401(k) MAGI reduction PASSED', {
+          txBase_magi: txBase.magi, txBase_acaCost: txBase.acaCost,
+          txWithHSA_magi: txWithHSA.magi, txWithHSA_acaCost: txWithHSA.acaCost,
+          snapUnchanged: txWithHSA.snapValue === txBase.snapValue,
+        });
+
+        // ── URL hash round-trip (task-92) ──
+        // Cover the four supported demo scenarios: OH baseline, OH cliff, TX, NC.
+        const URL_ROUND_TRIP_FIXTURES = [
+          { stateCode: 'OH', familySize: 4, currentIncome: 44000, offeredIncome: 70000, adultCount: 2, hasSection8Voucher: false, pfccEnrolled: false, employerHealthInsurance: false, matchRate: 0,  hsaContribution: 0,    pretax401k: 0    },
+          { stateCode: 'OH', familySize: 4, currentIncome: 35000, offeredIncome: 48000, adultCount: 2, hasSection8Voucher: false, pfccEnrolled: true,  employerHealthInsurance: false, matchRate: 5,  hsaContribution: 1500, pretax401k: 2000 },
+          { stateCode: 'TX', familySize: 3, currentIncome: 28000, offeredIncome: 42000, adultCount: 1, hasSection8Voucher: true,  pfccEnrolled: false, employerHealthInsurance: false, matchRate: 0,  hsaContribution: 0,    pretax401k: 0    },
+          { stateCode: 'NC', familySize: 5, currentIncome: 38000, offeredIncome: 60000, adultCount: 2, hasSection8Voucher: false, pfccEnrolled: false, employerHealthInsurance: true,  matchRate: 3,  hsaContribution: 0,    pretax401k: 4000 },
+        ];
+        for (const fixture of URL_ROUND_TRIP_FIXTURES) {
+          const decoded = parseProfileHash('#' + encodeProfileHash(fixture));
+          for (const { field } of PROFILE_URL_SCHEMA) {
+            console.assert(decoded[field] === fixture[field],
+              `URL round-trip mismatch on ${field} for ${fixture.stateCode}`,
+              { expected: fixture[field], got: decoded[field] });
+          }
+        }
+        // Invalid version must reject
+        console.assert(parseProfileHash('#s=OH&fs=4&v=2') === null,
+          'URL hash with unknown version must return null');
+        // Empty/missing must return null
+        console.assert(parseProfileHash('') === null, 'Empty hash must return null');
+        console.assert(parseProfileHash('#') === null, 'Bare # must return null');
+        // Invalid int must skip the field but still return the rest
+        const partial = parseProfileHash('#s=OH&fs=abc&v=1');
+        console.assert(partial?.stateCode === 'OH' && partial?.familySize === undefined,
+          'Invalid int must be skipped, valid fields preserved', partial);
+        console.log('[CliffCheck] URL hash round-trip PASSED', { fixtures: URL_ROUND_TRIP_FIXTURES.length });
+      })();
+    </script>
+
+    <!-- React + TinyBase globals for Babel JSX -->
+    <script type="module">
+      import * as React from "react";
+      import * as ReactDOM from "react-dom/client";
+      window.React = React;
+      window.ReactDOM = ReactDOM;
+    </script>
+    <!-- APP_CODE -->
+    <script type="text/babel" data-type="module">
+      import { createStore } from 'tinybase';
+      import { createLocalPersister } from 'tinybase/persisters/persister-browser';
+      import { Provider, useCell } from 'tinybase/ui-react';
+
+      const { useState, useEffect, useMemo, useRef } = React;
+
+      // ── Store (module-level singleton) ──
+      const store = createStore();
+      const DEFAULTS = { stateCode: 'OH', familySize: 4, currentIncome: 44000, offeredIncome: 70000, adultCount: 2, hasSection8Voucher: false, pfccEnrolled: false, employerHealthInsurance: false, matchRate: 0, hsaContribution: 0, pretax401k: 0 };
+
+      // ── Helpers ──
+      function fmtDollars(n) {
+        return '$' + Math.round(Math.abs(n)).toLocaleString();
+      }
+
+      // ── TrustBadge ──
+      function TrustBadge() {
+        return (
+          <div className="bg-stone-100 border-b border-stone-200 py-2.5 text-center">
+            <p className="text-xs text-stone-500">
+              🔒 Your data stays on this device — nothing is sent anywhere
+            </p>
+          </div>
+        );
+      }
+
+      // ── CurrencyInput ──
+      // Shows formatted "$X,XXX" when unfocused. Raw number while focused for easy editing.
+      function CurrencyInput({ id, value, onChange, placeholder }) {
+        const [focused, setFocused] = useState(false);
+        const [raw, setRaw] = useState('');
+
+        const display = focused ? raw : (value ? fmtDollars(value) : '');
+
+        function handleChange(e) {
+          const str = e.target.value;
+          setRaw(str);
+          const n = parseInt(str.replace(/[^0-9]/g, ''), 10) || 0;
+          onChange(n);
+        }
+
+        function handleBlur(e) {
+          setFocused(false);
+          const n = parseInt(e.target.value.replace(/[^0-9]/g, ''), 10) || 0;
+          onChange(n);
+        }
+
+        return (
+          <input
+            id={id}
+            type="text"
+            inputMode="numeric"
+            value={display}
+            placeholder={placeholder}
+            onFocus={() => { setFocused(true); setRaw(value ? String(value) : ''); }}
+            onBlur={handleBlur}
+            onChange={handleChange}
+            className="w-full h-12 px-3 bg-white border border-stone-200 rounded-lg text-stone-900 text-base focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-amber-400"
+          />
+        );
+      }
+
+      // ── IncomeSlider ──
+      function IncomeSlider({ id, value, onChange }) {
+        return (
+          <div>
+            <p className="text-xl font-semibold text-stone-900 leading-none mb-2"
+               style={{fontVariantNumeric:'tabular-nums'}}>
+              {fmtDollars(value)}/yr
+            </p>
+            <div className="py-2.5">
+              <input
+                id={id}
+                type="range"
+                min="0"
+                max="120000"
+                step="1000"
+                value={value}
+                onChange={e => onChange(Number(e.target.value))}
+                className="w-full accent-amber-500 cursor-pointer"
+                style={{height:'6px'}}
+              />
+            </div>
+            <div className="flex justify-between text-xs text-stone-400 -mt-1">
+              <span>$0</span><span>$60k</span><span>$120k</span>
+            </div>
+          </div>
+        );
+      }
+
+      // ── ProfileForm ──
+      function ProfileForm() {
+        const stateCode        = useCell('profile', 'current', 'stateCode')        ?? DEFAULTS.stateCode;
+        const familySize       = useCell('profile', 'current', 'familySize')       ?? DEFAULTS.familySize;
+        const currentIncome    = useCell('profile', 'current', 'currentIncome')    ?? DEFAULTS.currentIncome;
+        const offeredIncome    = useCell('profile', 'current', 'offeredIncome')    ?? DEFAULTS.offeredIncome;
+        const adultCount       = useCell('profile', 'current', 'adultCount')       ?? DEFAULTS.adultCount;
+        const hasSection8Voucher = useCell('profile', 'current', 'hasSection8Voucher') ?? DEFAULTS.hasSection8Voucher;
+        const pfccEnrolled     = useCell('profile', 'current', 'pfccEnrolled')     ?? DEFAULTS.pfccEnrolled;
+        const employerHealthInsurance = useCell('profile', 'current', 'employerHealthInsurance') ?? DEFAULTS.employerHealthInsurance;
+        const matchRate        = useCell('profile', 'current', 'matchRate')        ?? DEFAULTS.matchRate;
+        const hsaContribution  = useCell('profile', 'current', 'hsaContribution')  ?? DEFAULTS.hsaContribution;
+        const pretax401k       = useCell('profile', 'current', 'pretax401k')       ?? DEFAULTS.pretax401k;
+        const [showLevers, setShowLevers] = useState(false);
+
+        const supportedStates = getSupportedStates();
+
+        return (
+          <div className="bg-white rounded-2xl border border-stone-200 p-5 mt-6">
+            <h2 className="text-base font-semibold text-stone-800 mb-5">Your situation</h2>
+
+            {/* State */}
+            <div className="mb-4">
+              <label htmlFor="stateCode" className="block text-sm font-medium text-stone-700 mb-1.5">
+                State
+              </label>
+              <select
+                id="stateCode"
+                value={stateCode}
+                onChange={e => store.setCell('profile', 'current', 'stateCode', e.target.value)}
+                className="w-full h-12 px-3 bg-white border border-stone-200 rounded-lg text-stone-900 text-base focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-amber-400"
+              >
+                {supportedStates.map(({ code, label }) => (
+                  <option key={code} value={code}>{label}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* Family size */}
+            <div className="mb-4">
+              <label htmlFor="familySize" className="block text-sm font-medium text-stone-700 mb-1.5">
+                Family size
+              </label>
+              <select
+                id="familySize"
+                value={familySize}
+                onChange={e => store.setCell('profile', 'current', 'familySize', Number(e.target.value))}
+                className="w-full h-12 px-3 bg-white border border-stone-200 rounded-lg text-stone-900 text-base focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-amber-400"
+              >
+                {[1,2,3,4,5,6,7,8].map(n => (
+                  <option key={n} value={n}>{n} {n === 1 ? 'person' : 'people'}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* Adults in household */}
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-stone-700 mb-1.5">Adults in household</label>
+              <div className="flex gap-3">
+                {[1, 2].map(n => (
+                  <button
+                    key={n}
+                    type="button"
+                    onClick={() => store.setCell('profile', 'current', 'adultCount', n)}
+                    className={`flex-1 h-12 rounded-lg border text-sm font-medium transition-colors ${
+                      Number(adultCount) === n
+                        ? 'bg-amber-400 border-amber-400 text-stone-900'
+                        : 'bg-white border-stone-200 text-stone-700 hover:border-amber-300'
+                    }`}
+                  >
+                    {n === 1 ? '1 adult' : '2 adults'}
+                  </button>
+                ))}
+              </div>
+              <p className="text-xs text-stone-400 mt-1.5">
+                Number of children = family size − adults
+                {(() => {
+                  const kids = Math.max(0, Number(familySize) - Number(adultCount));
+                  if (kids === 0) return ' (no children)';
+                  if (kids === 1) return ' (1 child)';
+                  return ` (${kids} children)`;
+                })()}
+              </p>
+            </div>
+
+            {/* Current wages */}
+            <div className="mb-5">
+              <label htmlFor="currentIncome" className="block text-sm font-medium text-stone-700 mb-1.5">
+                Current annual wages
+              </label>
+              <IncomeSlider
+                id="currentIncome"
+                value={Number(currentIncome)}
+                onChange={v => store.setCell('profile', 'current', 'currentIncome', v)}
+              />
+            </div>
+
+            {/* Offered wages */}
+            <div className="mb-4">
+              <label htmlFor="offeredIncome" className="block text-sm font-medium text-stone-700 mb-1.5">
+                Offered or target annual wages
+              </label>
+              <IncomeSlider
+                id="offeredIncome"
+                value={Number(offeredIncome)}
+                onChange={v => store.setCell('profile', 'current', 'offeredIncome', v)}
+              />
+            </div>
+
+            {/* Section 8 voucher */}
+            <div className="mb-3">
+              <label className="flex items-center gap-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={!!hasSection8Voucher}
+                  onChange={e => store.setCell('profile', 'current', 'hasSection8Voucher', e.target.checked)}
+                  className="w-5 h-5 rounded border-stone-300 accent-amber-500"
+                />
+                <span className="text-sm text-stone-700">I have a Section 8 / Housing Choice Voucher</span>
+              </label>
+            </div>
+
+            {/* Employer health insurance */}
+            <div className="mb-3">
+              <label className="flex items-start gap-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={!!employerHealthInsurance}
+                  onChange={e => store.setCell('profile', 'current', 'employerHealthInsurance', e.target.checked)}
+                  className="w-5 h-5 mt-0.5 rounded border-stone-300 accent-amber-500"
+                />
+                <span className="text-sm text-stone-700 leading-snug">
+                  I have employer health insurance
+                  <span className="block text-xs text-stone-400 mt-0.5">ACA premium and tax credit don't apply when you have qualifying employer coverage.</span>
+                </span>
+              </label>
+            </div>
+
+            {/* Employer 401(k) match rate (% of salary) */}
+            <div className="mb-4">
+              <label htmlFor="matchRate" className="block text-sm font-medium text-stone-700 mb-1.5">
+                Employer 401(k) match (% of salary)
+                <span className="block text-xs text-stone-400 font-normal mt-0.5">
+                  Optional. If your employer matches contributions, enter the rate (e.g. 4 for 4%). Match scales with salary so the higher offer gains more. Default 0 (off).
+                </span>
+              </label>
+              <input
+                id="matchRate"
+                type="number"
+                min="0"
+                max="20"
+                step="0.5"
+                inputMode="decimal"
+                value={matchRate}
+                onChange={e => {
+                  const v = Math.max(0, Math.min(20, Number(e.target.value) || 0));
+                  store.setCell('profile', 'current', 'matchRate', v);
+                }}
+                className="w-full h-12 px-3 bg-white border border-stone-200 rounded-lg text-stone-900 text-base focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-amber-400"
+                style={{fontVariantNumeric: 'tabular-nums'}}
+              />
+            </div>
+
+            {/* Childcare subsidy enrolled — only when household has at least 1 child */}
+            {Math.max(0, Number(familySize) - Number(adultCount)) > 0 && (
+              <div className="mb-3">
+                <label className="flex items-center gap-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={!!pfccEnrolled}
+                    onChange={e => store.setCell('profile', 'current', 'pfccEnrolled', e.target.checked)}
+                    className="w-5 h-5 rounded border-stone-300 accent-amber-500"
+                  />
+                  <span className="text-sm text-stone-700">
+                    Already enrolled in subsidised childcare ({STATES[stateCode]?.childcare?.subsidyName || 'subsidy'})
+                  </span>
+                </label>
+              </div>
+            )}
+
+            {/* Advanced levers — collapsible */}
+            <div className="mt-4 border-t border-stone-100 pt-4">
+              <button
+                type="button"
+                onClick={() => setShowLevers(v => !v)}
+                className="flex items-center gap-2 text-sm font-medium text-stone-600 hover:text-stone-900 transition-colors w-full text-left min-h-[44px]"
+                aria-expanded={showLevers}
+              >
+                <span className="text-amber-500 text-base leading-none">{showLevers ? '▾' : '▸'}</span>
+                <span>Advanced levers</span>
+                <span className="text-xs text-stone-400 font-normal ml-1">HSA &amp; pre-tax 401(k)</span>
+              </button>
+              {showLevers && (
+                <div className="mt-3 space-y-4">
+                  <p className="text-xs text-stone-500 leading-relaxed">
+                    HSA and traditional 401(k) contributions reduce your MAGI — the income figure used for ACA premium tax credits and Medicaid eligibility. This can restore subsidies if you're just over a cliff. SNAP uses gross income regardless.
+                  </p>
+                  {/* HSA */}
+                  <div>
+                    <label htmlFor="hsaContribution" className="block text-sm font-medium text-stone-700 mb-1.5">
+                      Annual HSA contribution ($)
+                      <span className="block text-xs text-stone-400 font-normal mt-0.5">
+                        2026 limit: $4,300 (self) / $8,550 (family). Reduces MAGI for ACA and Medicaid only.
+                      </span>
+                    </label>
+                    <input
+                      id="hsaContribution"
+                      type="number"
+                      min="0"
+                      max="9000"
+                      step="100"
+                      inputMode="numeric"
+                      value={hsaContribution}
+                      onChange={e => {
+                        const v = Math.max(0, Math.min(9000, Number(e.target.value) || 0));
+                        store.setCell('profile', 'current', 'hsaContribution', v);
+                      }}
+                      className="w-full h-12 px-3 bg-white border border-stone-200 rounded-lg text-stone-900 text-base focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-amber-400"
+                      style={{fontVariantNumeric: 'tabular-nums'}}
+                    />
+                  </div>
+                  {/* Pre-tax 401(k) */}
+                  <div>
+                    <label htmlFor="pretax401k" className="block text-sm font-medium text-stone-700 mb-1.5">
+                      Annual pre-tax 401(k) contribution ($)
+                      <span className="block text-xs text-stone-400 font-normal mt-0.5">
+                        2026 elective deferral limit: $23,500. Reduces MAGI for ACA and Medicaid only. Not Roth.
+                      </span>
+                    </label>
+                    <input
+                      id="pretax401k"
+                      type="number"
+                      min="0"
+                      max="24000"
+                      step="500"
+                      inputMode="numeric"
+                      value={pretax401k}
+                      onChange={e => {
+                        const v = Math.max(0, Math.min(24000, Number(e.target.value) || 0));
+                        store.setCell('profile', 'current', 'pretax401k', v);
+                      }}
+                      className="w-full h-12 px-3 bg-white border border-stone-200 rounded-lg text-stone-900 text-base focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-amber-400"
+                      style={{fontVariantNumeric: 'tabular-nums'}}
+                    />
+                  </div>
+                  {(Number(hsaContribution) > 0 || Number(pretax401k) > 0) && (
+                    <p className="text-xs text-amber-700 bg-amber-50 rounded-lg px-3 py-2 leading-relaxed">
+                      MAGI reduced by {((Number(hsaContribution) || 0) + (Number(pretax401k) || 0)).toLocaleString('en-US', {style:'currency',currency:'USD',maximumFractionDigits:0})}/yr — ACA and Medicaid eligibility reflects this. SNAP and other benefits use gross wages.
+                    </p>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        );
+      }
+
+      // ── LiveSummary ──
+      function LiveSummary() {
+        const stateCode        = useCell('profile', 'current', 'stateCode')        ?? DEFAULTS.stateCode;
+        const familySize       = useCell('profile', 'current', 'familySize')       ?? DEFAULTS.familySize;
+        const currentIncome    = useCell('profile', 'current', 'currentIncome')    ?? DEFAULTS.currentIncome;
+        const offeredIncome    = useCell('profile', 'current', 'offeredIncome')    ?? DEFAULTS.offeredIncome;
+        const adultCount       = useCell('profile', 'current', 'adultCount')       ?? DEFAULTS.adultCount;
+        const hasSection8Voucher = useCell('profile', 'current', 'hasSection8Voucher') ?? DEFAULTS.hasSection8Voucher;
+        const pfccEnrolled     = useCell('profile', 'current', 'pfccEnrolled')     ?? DEFAULTS.pfccEnrolled;
+        const employerHealthInsurance = useCell('profile', 'current', 'employerHealthInsurance') ?? DEFAULTS.employerHealthInsurance;
+        const matchRate        = useCell('profile', 'current', 'matchRate')        ?? DEFAULTS.matchRate;
+        const hsaContribution  = useCell('profile', 'current', 'hsaContribution')  ?? DEFAULTS.hsaContribution;
+        const pretax401k       = useCell('profile', 'current', 'pretax401k')       ?? DEFAULTS.pretax401k;
+
+        const opts = { stateCode, adultCount: Number(adultCount), hasVoucher: !!hasSection8Voucher, pfccEnrolled: !!pfccEnrolled, employerHealthInsurance: !!employerHealthInsurance, matchRate: Number(matchRate) || 0, hsaContribution: Number(hsaContribution) || 0, pretax401k: Number(pretax401k) || 0 };
+
+        const current = useMemo(
+          () => calcEffectiveTakeHome(Number(currentIncome), Number(familySize), opts),
+          [stateCode, currentIncome, familySize, adultCount, hasSection8Voucher, pfccEnrolled, employerHealthInsurance, matchRate, hsaContribution, pretax401k]
+        );
+        const offered = useMemo(
+          () => calcEffectiveTakeHome(Number(offeredIncome), Number(familySize), opts),
+          [stateCode, offeredIncome, familySize, adultCount, hasSection8Voucher, pfccEnrolled, employerHealthInsurance, matchRate, hsaContribution, pretax401k]
+        );
+
+        const diff = offered.totalEffective - current.totalEffective;
+        const isWorse  = diff < -500;
+        const isBetter = diff > 500;
+
+        const raiseAmount = Number(offeredIncome) - Number(currentIncome);
+
+        const safeExit = useMemo(() => {
+          const data = getCliffChartData(Number(familySize), opts);
+          const baseline = current.totalEffective;
+          for (let i = data.length - 1; i >= 0; i--) {
+            if (data[i].totalEffective < baseline) {
+              if (i + 1 < data.length && data[i + 1].income > Number(currentIncome)) {
+                return data[i + 1].income;
+              }
+              break;
+            }
+          }
+          return null;
+        }, [stateCode, familySize, currentIncome, adultCount, hasSection8Voucher, pfccEnrolled, employerHealthInsurance, matchRate, hsaContribution, pretax401k]);
+
+        // Per-benefit deltas (monthly, for breakdown display)
+        const breakdown = isWorse ? [
+          { label: 'SNAP',      delta: Math.round((offered.snapValue      - current.snapValue)      / 12) },
+          { label: 'Medicaid',  delta: Math.round((offered.medicaidValue  - current.medicaidValue)  / 12) },
+          ...(opts.employerHealthInsurance ? [] : [
+            { label: 'ACA cost',     delta: Math.round((offered.acaCost     - current.acaCost)     / 12) },
+            { label: 'ACA CSR',      delta: Math.round((offered.acaCSRValue - current.acaCSRValue) / 12) },
+          ]),
+          { label: 'Childcare', delta: Math.round((offered.childcareValue - current.childcareValue) / 12) },
+          ...(opts.hasVoucher ? [{ label: 'Section 8', delta: Math.round((offered.section8Value - current.section8Value) / 12) }] : []),
+          { label: 'State tax', delta: Math.round((offered.stateTaxOwed   - current.stateTaxOwed)   / 12) },
+          ...((opts.matchRate || 0) > 0 ? [{ label: '401(k) match', delta: Math.round((offered.matchValue - current.matchValue) / 12) }] : []),
+        ].filter(b => b.delta !== 0) : [];
+
+        return (
+          <div className="mt-4 bg-white rounded-2xl border border-stone-200 p-5">
+            <div className="flex gap-4">
+              <div className="flex-1 min-w-0">
+                <p className="text-xs font-medium text-stone-400 uppercase tracking-wide leading-none">
+                  Take-home today
+                </p>
+                <p className="font-extrabold text-stone-900 mt-2 leading-none"
+                   style={{fontVariantNumeric: 'tabular-nums', fontSize: 'clamp(2.5rem, 5vw, 3.5rem)'}}>
+                  {fmtDollars(current.totalEffective)}
+                </p>
+                <p className="text-xs text-stone-400 mt-1.5">/yr including benefits</p>
+              </div>
+              <div className="flex-1 min-w-0 text-right">
+                <p className="text-xs font-medium text-stone-400 uppercase tracking-wide leading-none">
+                  After the offer
+                </p>
+                <p className={`font-extrabold mt-2 leading-none ${
+                    isWorse ? 'text-red-600' : isBetter ? 'text-green-700' : 'text-stone-900'
+                  }`}
+                   style={{fontVariantNumeric: 'tabular-nums', fontSize: 'clamp(2.5rem, 5vw, 3.5rem)'}}>
+                  {fmtDollars(offered.totalEffective)}
+                </p>
+                <p className={`text-sm font-semibold mt-1.5 ${
+                    isWorse ? 'text-red-600' : isBetter ? 'text-green-600' : 'text-stone-400'
+                  }`}
+                   style={{fontVariantNumeric: 'tabular-nums'}}>
+                  {isWorse ? '−' : isBetter ? '+' : '—'}{isWorse || isBetter ? fmtDollars(Math.abs(diff)) + '/yr' : 'no change'}
+                </p>
+              </div>
+            </div>
+
+            {breakdown.length > 0 && (
+              <div className="mt-4 pt-4 border-t border-stone-100 space-y-1.5">
+                <p className="text-xs font-medium text-stone-400 uppercase tracking-wide mb-2">Benefit changes (monthly)</p>
+                {breakdown.map(({ label, delta }) => {
+                  const isCostLine = label === 'ACA cost' || label === 'State tax';
+                  const isLoss = isCostLine ? delta > 0 : delta < 0;
+                  const sign   = isCostLine ? (delta > 0 ? '+' : '−') : (delta < 0 ? '−' : '+');
+                  return (
+                    <p key={label} className={`text-xs font-medium ${isLoss ? 'text-red-600' : 'text-green-700'}`}
+                       style={{fontVariantNumeric: 'tabular-nums'}}>
+                      {label} {sign}${Math.abs(delta).toLocaleString()}/mo
+                    </p>
+                  );
+                })}
+              </div>
+            )}
+            {current.childcareValue > 0 && (
+              <p className="text-xs text-stone-400 mt-3 leading-relaxed">
+                Note: PFCC has waitlists in some Ohio counties — availability varies. Contact your county JFS office to confirm.
+              </p>
+            )}
+          </div>
+        );
+      }
+
+      // ── LiveSummaryStrip ──
+      function LiveSummaryStrip() {
+        const stateCode        = useCell('profile', 'current', 'stateCode')        ?? DEFAULTS.stateCode;
+        const familySize       = useCell('profile', 'current', 'familySize')       ?? DEFAULTS.familySize;
+        const currentIncome    = useCell('profile', 'current', 'currentIncome')    ?? DEFAULTS.currentIncome;
+        const offeredIncome    = useCell('profile', 'current', 'offeredIncome')    ?? DEFAULTS.offeredIncome;
+        const adultCount       = useCell('profile', 'current', 'adultCount')       ?? DEFAULTS.adultCount;
+        const hasSection8Voucher = useCell('profile', 'current', 'hasSection8Voucher') ?? DEFAULTS.hasSection8Voucher;
+        const pfccEnrolled     = useCell('profile', 'current', 'pfccEnrolled')     ?? DEFAULTS.pfccEnrolled;
+        const employerHealthInsurance = useCell('profile', 'current', 'employerHealthInsurance') ?? DEFAULTS.employerHealthInsurance;
+        const matchRate        = useCell('profile', 'current', 'matchRate')        ?? DEFAULTS.matchRate;
+        const hsaContribution  = useCell('profile', 'current', 'hsaContribution')  ?? DEFAULTS.hsaContribution;
+        const pretax401k       = useCell('profile', 'current', 'pretax401k')       ?? DEFAULTS.pretax401k;
+
+        const opts = { stateCode, adultCount: Number(adultCount), hasVoucher: !!hasSection8Voucher, pfccEnrolled: !!pfccEnrolled, employerHealthInsurance: !!employerHealthInsurance, matchRate: Number(matchRate) || 0, hsaContribution: Number(hsaContribution) || 0, pretax401k: Number(pretax401k) || 0 };
+
+        const current = useMemo(
+          () => calcEffectiveTakeHome(Number(currentIncome), Number(familySize), opts),
+          [stateCode, currentIncome, familySize, adultCount, hasSection8Voucher, pfccEnrolled, employerHealthInsurance, matchRate, hsaContribution, pretax401k]
+        );
+        const offered = useMemo(
+          () => calcEffectiveTakeHome(Number(offeredIncome), Number(familySize), opts),
+          [stateCode, offeredIncome, familySize, adultCount, hasSection8Voucher, pfccEnrolled, employerHealthInsurance, matchRate, hsaContribution, pretax401k]
+        );
+
+        const diff = offered.totalEffective - current.totalEffective;
+        const isWorse  = diff < -500;
+        const isBetter = diff > 500;
+
+        return (
+          <div className="mt-3 bg-stone-100 rounded-xl px-4 py-3 flex items-center justify-between gap-2">
+            <div className="min-w-0">
+              <p className="text-xs text-stone-400 leading-none mb-0.5">Today</p>
+              <p className="text-base font-bold text-stone-900 leading-none"
+                 style={{fontVariantNumeric:'tabular-nums'}}>
+                {fmtDollars(current.totalEffective)}
+              </p>
+            </div>
+            <div className={`shrink-0 text-sm font-bold px-2 py-1 rounded-lg ${
+              isWorse ? 'bg-red-100 text-red-700' : isBetter ? 'bg-green-100 text-green-700' : 'bg-stone-200 text-stone-500'
+            }`} style={{fontVariantNumeric:'tabular-nums'}}>
+              {isWorse ? '−' : isBetter ? '+' : '—'}{isWorse || isBetter ? fmtDollars(Math.abs(diff)) : ''}
+            </div>
+            <div className="min-w-0 text-right">
+              <p className="text-xs text-stone-400 leading-none mb-0.5">After offer</p>
+              <p className={`text-base font-bold leading-none ${
+                isWorse ? 'text-red-600' : isBetter ? 'text-green-700' : 'text-stone-900'
+              }`} style={{fontVariantNumeric:'tabular-nums'}}>
+                {fmtDollars(offered.totalEffective)}
+              </p>
+            </div>
+          </div>
+        );
+      }
+
+      // ── Chart.js plugin: zone fills + vertical income markers ──
+      const cliffChartPlugin = {
+        id: 'cliffChartPlugin',
+        beforeDatasetsDraw(chart) {
+          const { ctx, chartArea, scales } = chart;
+          const pts = chart.data.datasets[0].data;
+          if (!pts || pts.length < 2) return;
+          for (let i = 0; i < pts.length - 1; i++) {
+            const dy = pts[i + 1].y - pts[i].y;
+            // green = rising, red = cliff drop, amber = flat/transitional
+            ctx.fillStyle = dy > 500
+              ? 'rgba(220,252,231,0.28)'
+              : dy < -200
+                ? 'rgba(254,226,226,0.72)'
+                : 'rgba(231,229,228,0.18)';
+            const x0 = scales.x.getPixelForValue(pts[i].x);
+            const x1 = scales.x.getPixelForValue(pts[i + 1].x);
+            ctx.fillRect(x0, chartArea.top, x1 - x0, chartArea.height);
+          }
+        },
+        afterDatasetsDraw(chart, _args, opts) {
+          const { ctx, chartArea, scales } = chart;
+
+          // Program-named cliff thresholds (rendered first so income markers
+          // and cliff callout draw on top). Stone-mid colour, light dash —
+          // present but not noisy.
+          (opts.programCliffs || []).forEach(({ x, label }, idx) => {
+            if (x <= 0 || x > 120000) return;
+            const xpx = scales.x.getPixelForValue(x);
+            ctx.save();
+            ctx.strokeStyle = '#A8A29E'; // stone-400
+            ctx.lineWidth = 1;
+            ctx.setLineDash([2, 4]);
+            ctx.beginPath();
+            ctx.moveTo(xpx, chartArea.top + 22);
+            ctx.lineTo(xpx, chartArea.bottom);
+            ctx.stroke();
+            ctx.setLineDash([]);
+            ctx.font = '10px system-ui,sans-serif';
+            const tw = ctx.measureText(label).width;
+            const pad = 3, lh = 13;
+            // Stagger vertically when two cliffs are within ~$8k of each other
+            // (avoids overlapping labels at 375px width).
+            const prev = (opts.programCliffs || [])[idx - 1];
+            const stagger = prev && Math.abs(x - prev.x) < 8000 ? lh + 2 : 0;
+            const ly = chartArea.bottom - lh - 4 - stagger;
+            const lx = Math.min(Math.max(xpx - tw / 2 - pad, chartArea.left + 2), chartArea.right - tw - pad * 2 - 2);
+            ctx.fillStyle = 'rgba(255,255,255,0.92)';
+            ctx.fillRect(lx, ly, tw + pad * 2, lh);
+            ctx.fillStyle = '#57534E'; // stone-600
+            ctx.fillText(label, lx + pad, ly + lh - 3);
+            ctx.restore();
+          });
+
+          // Income markers (You now / Offer / Safe exit)
+          (opts.lines || []).forEach(({ x, color, label, dash }) => {
+            if (x < 0 || x > 120000) return;
+            const xpx = scales.x.getPixelForValue(x);
+            ctx.save();
+            ctx.strokeStyle = color;
+            ctx.lineWidth = 1.5;
+            ctx.setLineDash(dash || [5, 4]);
+            ctx.beginPath();
+            ctx.moveTo(xpx, chartArea.top);
+            ctx.lineTo(xpx, chartArea.bottom);
+            ctx.stroke();
+            if (label) {
+              ctx.setLineDash([]);
+              ctx.font = 'bold 10px system-ui,sans-serif';
+              const tw = ctx.measureText(label).width;
+              const pad = 4, lh = 14;
+              const lx = Math.min(Math.max(xpx - tw / 2 - pad, chartArea.left), chartArea.right - tw - pad * 2);
+              ctx.fillStyle = 'rgba(255,255,255,0.9)';
+              ctx.fillRect(lx, chartArea.top + 3, tw + pad * 2, lh);
+              ctx.fillStyle = color;
+              ctx.fillText(label, lx + pad, chartArea.top + lh);
+            }
+            ctx.restore();
+          });
+
+          // Inline dataset labels at the right edge — name each line at rest
+          // so screenshots travel without explanation. Pulled from the
+          // datasets so dataset reordering doesn't drift.
+          const labels = chart.data.datasets.map((ds, i) => ({
+            text: ds._inlineLabel,
+            color: ds._inlineLabelColor || '#78716C',
+            y: ds.data[ds.data.length - 1]?.y,
+          })).filter(l => l.text != null && l.y != null);
+          labels.forEach(({ text, color, y }) => {
+            const ypx = scales.y.getPixelForValue(y);
+            if (ypx < chartArea.top || ypx > chartArea.bottom) return;
+            ctx.save();
+            ctx.font = 'bold 10px system-ui,sans-serif';
+            const tw = ctx.measureText(text).width;
+            const pad = 3, lh = 13;
+            // Anchor inside the right edge — outside risks getting clipped on
+            // narrow viewports. Slight white halo for legibility over the line.
+            const lx = chartArea.right - tw - pad * 2 - 2;
+            const ly = ypx - lh / 2;
+            ctx.fillStyle = 'rgba(255,255,255,0.92)';
+            ctx.fillRect(lx, ly, tw + pad * 2, lh);
+            ctx.fillStyle = color;
+            ctx.fillText(text, lx + pad, ly + lh - 3);
+            ctx.restore();
+          });
+
+          // Cliff drop annotation — biggest single-step loss, named by cause
+          // ("Medicaid cliff: −$4,500"). Self-describing — the chart explains
+          // itself without needing a caption.
+          if (opts.cliffAnnotation && opts.cliffAnnotation.dy < -500) {
+            const { midX, bottomY, dropAmt, cause } = opts.cliffAnnotation;
+            if (midX >= 0 && midX <= 120000) {
+              const xpx = scales.x.getPixelForValue(midX);
+              const ypx = scales.y.getPixelForValue(bottomY);
+              const label = cause
+                ? `${cause} cliff: −$${dropAmt.toLocaleString()}`
+                : `−$${dropAmt.toLocaleString()}`;
+              ctx.save();
+              ctx.font = 'bold 11px system-ui,sans-serif';
+              const tw = ctx.measureText(label).width;
+              const pad = 5, lh = 16;
+              const lx = Math.min(Math.max(xpx - tw / 2 - pad, chartArea.left + 2), chartArea.right - tw - pad * 2 - 2);
+              const ly = Math.min(ypx + 6, chartArea.bottom - lh - 4);
+              ctx.fillStyle = 'rgba(220,38,38,0.12)';
+              ctx.fillRect(lx, ly, tw + pad * 2, lh);
+              ctx.fillStyle = '#DC2626';
+              ctx.fillText(label, lx + pad, ly + lh - 3);
+              ctx.restore();
+            }
+          }
+        },
+      };
+
+      // ── CliffChart ──
+      function CliffChart() {
+        const canvasRef = useRef(null);
+        const chartRef  = useRef(null);
+
+        const stateCode        = useCell('profile', 'current', 'stateCode')        ?? DEFAULTS.stateCode;
+        const familySize       = useCell('profile', 'current', 'familySize')       ?? DEFAULTS.familySize;
+        const currentIncome    = useCell('profile', 'current', 'currentIncome')    ?? DEFAULTS.currentIncome;
+        const offeredIncome    = useCell('profile', 'current', 'offeredIncome')    ?? DEFAULTS.offeredIncome;
+        const adultCount       = useCell('profile', 'current', 'adultCount')       ?? DEFAULTS.adultCount;
+        const hasSection8Voucher = useCell('profile', 'current', 'hasSection8Voucher') ?? DEFAULTS.hasSection8Voucher;
+        const pfccEnrolled     = useCell('profile', 'current', 'pfccEnrolled')     ?? DEFAULTS.pfccEnrolled;
+        const employerHealthInsurance = useCell('profile', 'current', 'employerHealthInsurance') ?? DEFAULTS.employerHealthInsurance;
+        const matchRate        = useCell('profile', 'current', 'matchRate')        ?? DEFAULTS.matchRate;
+        const hsaContribution  = useCell('profile', 'current', 'hsaContribution')  ?? DEFAULTS.hsaContribution;
+        const pretax401k       = useCell('profile', 'current', 'pretax401k')       ?? DEFAULTS.pretax401k;
+
+        const opts = { stateCode, adultCount: Number(adultCount), hasVoucher: !!hasSection8Voucher, pfccEnrolled: !!pfccEnrolled, employerHealthInsurance: !!employerHealthInsurance, matchRate: Number(matchRate) || 0, hsaContribution: Number(hsaContribution) || 0, pretax401k: Number(pretax401k) || 0 };
+
+        const { pts, wagePts, currentResult, offeredResult, safeExit, yMin, cliffAnnotation, programCliffs } = useMemo(() => {
+          const data = getCliffChartData(Number(familySize), opts);
+          const pts  = data.map(d => ({ x: d.income, y: d.totalEffective }));
+          // Gross wages line — straight diagonal y = x. The visual delta between
+          // the two lines IS the benefit value at any given income.
+          const wagePts = data.map(d => ({ x: d.income, y: d.income }));
+          const currentResult = calcEffectiveTakeHome(Number(currentIncome), Number(familySize), opts);
+          const offeredResult = calcEffectiveTakeHome(Number(offeredIncome), Number(familySize), opts);
+
+          // Safe exit = minimum income past ALL cliffs where effective permanently exceeds baseline.
+          // Scan from high to low: find last income below baseline, safe exit = next income up.
+          let safeExit = null;
+          const seBaseline = currentResult.totalEffective;
+          for (let i = data.length - 1; i >= 0; i--) {
+            if (data[i].totalEffective < seBaseline) {
+              if (i + 1 < data.length && data[i + 1].income > Number(currentIncome)) {
+                safeExit = data[i + 1].income;
+              }
+              break;
+            }
+          }
+
+          // Y-axis min: zoom to relevant range. Include wage line (≥0) so chart
+          // doesn't truncate the gross wages reference line at low incomes.
+          const minY = Math.min(...pts.map(p => p.y));
+          const yMin = Math.max(0, Math.floor((minY - 6000) / 5000) * 5000);
+
+          // Biggest single-step cliff drop — and identify dominant program cause.
+          // Diff each program independently across the cliff step; whichever
+          // changed most negatively is the named cause. This makes the cliff
+          // self-describing: "Medicaid cliff: −$4,500" not just "−$4,500".
+          let cliffAnnotation = null;
+          for (let i = 0; i < pts.length - 1; i++) {
+            const dy = pts[i+1].y - pts[i].y;
+            if (!cliffAnnotation || dy < cliffAnnotation.dy) {
+              const dSnap     = data[i+1].snapValue      - data[i].snapValue;
+              const dMedicaid = data[i+1].medicaidValue  - data[i].medicaidValue;
+              const dCC       = data[i+1].childcareValue - data[i].childcareValue;
+              const dACA      = data[i].acaCost          - data[i+1].acaCost; // cost rises = benefit falls
+              const candidates = [
+                { name: 'SNAP',      delta: dSnap },
+                { name: 'Medicaid',  delta: dMedicaid },
+                { name: 'Childcare', delta: dCC },
+                { name: 'ACA',       delta: dACA },
+              ].filter(c => c.delta < -200);
+              candidates.sort((a, b) => a.delta - b.delta);
+              const cause = candidates[0]?.name || null;
+              cliffAnnotation = {
+                midX: (pts[i].x + pts[i+1].x) / 2,
+                bottomY: pts[i+1].y,
+                dy,
+                dropAmt: Math.round(Math.abs(dy)),
+                cause,
+              };
+            }
+          }
+
+          // Program-named cliff thresholds — derived from engine data, not from
+          // FPL math (".impeccable.md" bans "FPL" as UI text). For each program,
+          // find the income where it drops from positive to zero. Skip programs
+          // not active at the demo's current income (avoids labeling thresholds
+          // for programs the user doesn't have).
+          const programCliffs = [];
+          const programs = [
+            { key: 'medicaidValue',  label: 'Medicaid ends'   },
+            { key: 'snapValue',      label: 'SNAP ends'       },
+            { key: 'childcareValue', label: 'Childcare ends'  },
+          ];
+          for (const { key, label } of programs) {
+            for (let i = 0; i < data.length - 1; i++) {
+              if (data[i][key] > 0 && data[i+1][key] === 0) {
+                programCliffs.push({ x: data[i+1].income, label });
+                break;
+              }
+            }
+          }
+
+          return { pts, wagePts, currentResult, offeredResult, safeExit, yMin, cliffAnnotation, programCliffs };
+        }, [stateCode, familySize, currentIncome, offeredIncome, adultCount, hasSection8Voucher, pfccEnrolled, employerHealthInsurance, matchRate, hsaContribution, pretax401k]);
+
+        useEffect(() => {
+          if (!canvasRef.current) return;
+          if (chartRef.current) chartRef.current.destroy();
+
+          const lines = [
+            { x: Number(currentIncome), color: '#2563EB', label: 'You now', dash: [6, 4] },
+            { x: Number(offeredIncome), color: '#7C3AED', label: 'Offer',   dash: [6, 4] },
+          ];
+          if (safeExit) lines.push({ x: safeExit, color: '#16A34A', label: 'Safe exit', dash: [4, 3] });
+
+          chartRef.current = new Chart(canvasRef.current, {
+            type: 'line',
+            data: {
+              datasets: [
+                {
+                  // Effective take-home (cliff line — segments coloured by slope)
+                  _inlineLabel: 'Take-home',
+                  _inlineLabelColor: '#1C1917',
+                  data: pts,
+                  borderWidth: 2.5,
+                  pointRadius: 0,
+                  pointHoverRadius: 5,
+                  pointHoverBackgroundColor: '#44403C',
+                  tension: 0,
+                  fill: false,
+                  segment: {
+                    borderColor: ctx => {
+                      const dy = ctx.p1.parsed.y - ctx.p0.parsed.y;
+                      if (dy < -200) return '#DC2626'; // cliff drop
+                      if (dy > 500)  return '#16A34A'; // benefit gains
+                      return '#78716C';                // neutral wage growth
+                    },
+                  },
+                },
+                {
+                  // Gross wages (reference line — straight diagonal). The vertical
+                  // gap between this line and Take-home IS the benefit value.
+                  _inlineLabel: 'Wages only',
+                  _inlineLabelColor: '#A8A29E',
+                  data: wagePts,
+                  borderColor: '#D6D3D1', // stone-300 — quiet reference
+                  borderWidth: 1.5,
+                  borderDash: [4, 4],
+                  pointRadius: 0,
+                  pointHoverRadius: 0,
+                  tension: 0,
+                  fill: false,
+                },
+              ],
+            },
+            options: {
+              responsive: true,
+              maintainAspectRatio: true,
+              aspectRatio: 2,
+              animation: false,
+              plugins: {
+                legend: { display: false },
+                tooltip: {
+                  backgroundColor: '#FAFAF9',
+                  titleColor: '#1C1917',
+                  bodyColor: '#57534E',
+                  borderColor: '#E7E5E4',
+                  borderWidth: 1,
+                  padding: 10,
+                  // Suppress hover on the wages reference line — only the
+                  // cliff/take-home line drives the breakdown tooltip.
+                  filter: (ctx) => ctx.datasetIndex === 0,
+                  callbacks: {
+                    title: ctx => '$' + Number(ctx[0].parsed.x).toLocaleString() + '/yr wages',
+                    label: ctx => {
+                      const income = Number(ctx.parsed.x);
+                      const r = calcEffectiveTakeHome(income, Number(familySize), { stateCode, adultCount: Number(adultCount), hasVoucher: !!hasSection8Voucher, pfccEnrolled: !!pfccEnrolled, employerHealthInsurance: !!employerHealthInsurance, matchRate: Number(matchRate) || 0 });
+                      const lines = [
+                        `Wages:      $${Math.round(r.grossWages).toLocaleString()}`,
+                        `SNAP:      +$${Math.round(r.snapValue).toLocaleString()}`,
+                        `Medicaid:  +$${Math.round(r.medicaidValue).toLocaleString()}`,
+                        `Childcare: +$${Math.round(r.childcareValue).toLocaleString()}`,
+                        ...(employerHealthInsurance ? [] : [
+                          `ACA cost:  −$${Math.round(r.acaCost).toLocaleString()}`,
+                          ...(r.acaCSRValue > 0 ? [`ACA CSR:   +$${Math.round(r.acaCSRValue).toLocaleString()}`] : []),
+                        ]),
+                        ...(r.section8Value > 0 ? [`Section 8: +$${Math.round(r.section8Value).toLocaleString()}`] : []),
+                        `─────────────────────`,
+                        `Total: $${Math.round(r.totalEffective).toLocaleString()}/yr`,
+                      ];
+                      return lines;
+                    },
+                  },
+                },
+                cliffChartPlugin: { lines, cliffAnnotation, programCliffs },
+              },
+              scales: {
+                x: {
+                  type: 'linear',
+                  min: 0,
+                  max: 120000,
+                  title: {
+                    display: true,
+                    text: 'Gross wages',
+                    color: '#57534E',
+                    font: { size: 11, family: 'system-ui', weight: '600' },
+                    padding: { top: 6 },
+                  },
+                  ticks: {
+                    stepSize: 20000,
+                    callback: v => '$' + (v / 1000) + 'k',
+                    font: { size: 11, family: 'system-ui' },
+                    color: '#A8A29E',
+                    maxTicksLimit: 7,
+                  },
+                  grid: { color: 'rgba(231,229,228,0.6)' },
+                  border: { display: false },
+                },
+                y: {
+                  min: yMin,
+                  title: {
+                    display: true,
+                    text: 'Annual income (after benefits)',
+                    color: '#57534E',
+                    font: { size: 11, family: 'system-ui', weight: '600' },
+                    padding: { bottom: 6 },
+                  },
+                  ticks: {
+                    callback: v => '$' + (v / 1000).toFixed(0) + 'k',
+                    font: { size: 11, family: 'system-ui' },
+                    color: '#A8A29E',
+                    maxTicksLimit: 6,
+                  },
+                  grid: { color: 'rgba(231,229,228,0.6)' },
+                  border: { display: false },
+                },
+              },
+            },
+            plugins: [cliffChartPlugin],
+          });
+
+          return () => { if (chartRef.current) chartRef.current.destroy(); };
+        }, [pts, wagePts, currentIncome, offeredIncome, safeExit, yMin, cliffAnnotation, programCliffs]);
+
+        const diff    = offeredResult.totalEffective - currentResult.totalEffective;
+        const isWorse = diff < -500;
+
+        const chartBreakdown = isWorse ? [
+          { label: 'SNAP',      delta: Math.round((offeredResult.snapValue      - currentResult.snapValue)      / 12) },
+          { label: 'Medicaid',  delta: Math.round((offeredResult.medicaidValue  - currentResult.medicaidValue)  / 12) },
+          ...(opts.employerHealthInsurance ? [] : [
+            { label: 'ACA cost', delta: Math.round((offeredResult.acaCost     - currentResult.acaCost)     / 12) },
+            { label: 'ACA CSR',  delta: Math.round((offeredResult.acaCSRValue - currentResult.acaCSRValue) / 12) },
+          ]),
+          { label: 'Childcare', delta: Math.round((offeredResult.childcareValue - currentResult.childcareValue) / 12) },
+          ...(opts.hasVoucher ? [{ label: 'Section 8', delta: Math.round((offeredResult.section8Value - currentResult.section8Value) / 12) }] : []),
+          { label: 'State tax', delta: Math.round((offeredResult.stateTaxOwed   - currentResult.stateTaxOwed)   / 12) },
+          ...((opts.matchRate || 0) > 0 ? [{ label: '401(k) match', delta: Math.round((offeredResult.matchValue - currentResult.matchValue) / 12) }] : []),
+        ].filter(b => b.delta !== 0) : [];
+
+        return (
+          <div id="cliff-chart" className="mt-4 bg-white rounded-2xl border border-stone-200 p-5">
+            <h2 className="text-base font-semibold text-stone-800 mb-3">
+              Benefits cliff — {STATES[stateCode]?.label || 'Ohio'}, {Number(familySize)} {Number(familySize) === 1 ? 'person' : 'people'}
+            </h2>
+            <canvas ref={canvasRef} />
+
+            {/* Marker legend */}
+            <div className="flex flex-wrap gap-x-4 gap-y-1 mt-3">
+              {[
+                { color: 'bg-blue-600',   label: 'You now' },
+                { color: 'bg-violet-600', label: 'Offer' },
+                ...(safeExit ? [{ color: 'bg-green-600', label: 'Safe exit' }] : []),
+                { color: 'bg-stone-300',  label: 'Wages only', dashed: true },
+              ].map(({ color, label, dashed }) => (
+                <span key={label} className="flex items-center gap-1.5 text-xs text-stone-500">
+                  <span
+                    className={`inline-block w-3 h-0.5 rounded ${color}`}
+                    style={dashed ? { borderTop: '1.5px dashed #D6D3D1', backgroundColor: 'transparent', height: 0 } : undefined}
+                  />
+                  {label}
+                </span>
+              ))}
+            </div>
+
+            {/* Cliff alert */}
+            {isWorse && (
+              <div className="mt-4 p-3.5 bg-red-50 rounded-xl border border-red-200">
+                <p className="text-sm font-semibold text-red-700">
+                  ⚠ Taking this offer costs you {fmtDollars(Math.abs(diff))}/yr
+                </p>
+                <p className="text-xs text-red-600 mt-1">Benefits phase out faster than your wages grow.</p>
+                {chartBreakdown.length > 0 && (
+                  <div className="mt-2.5 pt-2.5 border-t border-red-200 space-y-1">
+                    {chartBreakdown.map(({ label, delta }) => {
+                      const isCostLine = label === 'ACA cost' || label === 'State tax';
+                      const isLoss = isCostLine ? delta > 0 : delta < 0;
+                      const sign   = isCostLine ? (delta > 0 ? '+' : '−') : (delta < 0 ? '−' : '+');
+                      return (
+                        <p key={label} className={`text-xs font-medium ${isLoss ? 'text-red-600' : 'text-stone-500'}`}
+                           style={{fontVariantNumeric:'tabular-nums'}}>
+                          {label} {sign}${Math.abs(delta).toLocaleString()}/mo
+                        </p>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Safe exit callout */}
+            {isWorse && safeExit && (
+              <div className="mt-3 p-3.5 bg-green-50 rounded-xl border border-green-200">
+                <p className="text-sm font-semibold text-green-700">
+                  Safe exit: ${safeExit.toLocaleString()}/yr
+                </p>
+                <p className="text-xs text-green-700 mt-1">
+                  First income past all benefit cliffs where you stay ahead of today.
+                </p>
+              </div>
+            )}
+          </div>
+        );
+      }
+
+      // ── ManagerBrief ──
+      function ManagerBrief() {
+        const stateCode        = useCell('profile', 'current', 'stateCode')        ?? DEFAULTS.stateCode;
+        const familySize       = useCell('profile', 'current', 'familySize')       ?? DEFAULTS.familySize;
+        const currentIncome    = useCell('profile', 'current', 'currentIncome')    ?? DEFAULTS.currentIncome;
+        const offeredIncome    = useCell('profile', 'current', 'offeredIncome')    ?? DEFAULTS.offeredIncome;
+        const adultCount       = useCell('profile', 'current', 'adultCount')       ?? DEFAULTS.adultCount;
+        const hasSection8Voucher = useCell('profile', 'current', 'hasSection8Voucher') ?? DEFAULTS.hasSection8Voucher;
+        const pfccEnrolled     = useCell('profile', 'current', 'pfccEnrolled')     ?? DEFAULTS.pfccEnrolled;
+        const employerHealthInsurance = useCell('profile', 'current', 'employerHealthInsurance') ?? DEFAULTS.employerHealthInsurance;
+        const matchRate        = useCell('profile', 'current', 'matchRate')        ?? DEFAULTS.matchRate;
+        const hsaContribution  = useCell('profile', 'current', 'hsaContribution')  ?? DEFAULTS.hsaContribution;
+        const pretax401k       = useCell('profile', 'current', 'pretax401k')       ?? DEFAULTS.pretax401k;
+        const [copied, setCopied] = useState(false);
+
+        const opts = { stateCode, adultCount: Number(adultCount), hasVoucher: !!hasSection8Voucher, pfccEnrolled: !!pfccEnrolled, employerHealthInsurance: !!employerHealthInsurance, matchRate: Number(matchRate) || 0, hsaContribution: Number(hsaContribution) || 0, pretax401k: Number(pretax401k) || 0 };
+
+        const { current, offered, safeExit, benefitValue, diff } = useMemo(() => {
+          const fs  = Number(familySize);
+          const current = calcEffectiveTakeHome(Number(currentIncome), fs, opts);
+          const offered = calcEffectiveTakeHome(Number(offeredIncome), fs, opts);
+          const benefitValue = current.snapValue + current.medicaidValue
+            + current.section8Value + current.childcareValue + current.acaCSRValue - current.acaCost;
+          const diff = offered.totalEffective - current.totalEffective;
+          const data = getCliffChartData(fs, opts);
+          let safeExit = null;
+          const seBaseline = current.totalEffective;
+          for (let i = data.length - 1; i >= 0; i--) {
+            if (data[i].totalEffective < seBaseline) {
+              if (i + 1 < data.length && data[i + 1].income > Number(currentIncome)) {
+                safeExit = data[i + 1].income;
+              }
+              break;
+            }
+          }
+          return { current, offered, safeExit, benefitValue, diff };
+        }, [stateCode, familySize, currentIncome, offeredIncome, adultCount, hasSection8Voucher, pfccEnrolled, employerHealthInsurance, matchRate, hsaContribution, pretax401k]);
+
+        const isWorse = diff < -500;
+        const matchSuffix = (Number(matchRate) || 0) > 0
+          ? `, including a ${matchRate}% employer 401(k) match (${fmtDollars(offered.matchValue)}/yr at the offered salary)`
+          : '';
+        const totalMagiReduction = (Number(hsaContribution) || 0) + (Number(pretax401k) || 0);
+        const magiSuffix = totalMagiReduction > 0
+          ? `. Note: ${fmtDollars(totalMagiReduction)}/yr in pre-tax contributions (HSA/401k) reduce taxable income, which affects ACA and Medicaid eligibility in this model`
+          : '';
+        const line1 = `Currently earning ${fmtDollars(Number(currentIncome))}/yr with ${fmtDollars(Math.abs(benefitValue))} in annual benefit value — ${fmtDollars(current.totalEffective)} total effective${matchSuffix}${magiSuffix}`;
+        const line2 = isWorse
+          ? `The ${fmtDollars(Number(offeredIncome))} offer would give ${fmtDollars(offered.totalEffective)} total effective — that's ${fmtDollars(Math.abs(diff))} less than today`
+          : `The ${fmtDollars(Number(offeredIncome))} offer would give ${fmtDollars(offered.totalEffective)} total effective — ${fmtDollars(diff)} more than today`;
+        const line3 = safeExit
+          ? `To clear all benefit cliffs, I need ~${fmtDollars(safeExit)}/yr — that's where I permanently stay ahead`
+          : `The offered income clears all benefit cliffs — this raise genuinely improves total compensation`;
+        const briefText = [line1, line2, line3].join('\n');
+
+        async function handleCopy() {
+          try {
+            await navigator.clipboard.writeText(briefText);
+            setCopied(true);
+            setTimeout(() => setCopied(false), 2000);
+          } catch (_) {}
+        }
+
+        return (
+          <div className="mt-4 bg-orange-50 border border-amber-200 rounded-2xl p-5">
+            <div className="flex flex-col gap-3 mb-4">
+              <div>
+                <h2 className="text-base font-semibold text-stone-800">Manager brief</h2>
+                <p className="text-xs text-stone-500 mt-0.5">Copy and paste into a message to your manager or HR</p>
+              </div>
+              <button
+                onClick={handleCopy}
+                className="w-full h-12 text-sm font-bold rounded-lg bg-amber-500 text-stone-900 hover:bg-amber-600 active:bg-amber-700 transition-colors"
+              >
+                {copied ? '✓ Copied' : 'Copy text'}
+              </button>
+            </div>
+            <ol className="space-y-3">
+              {[line1, line2, line3].map((line, i) => (
+                <li key={i} className="flex gap-3">
+                  <span className="shrink-0 w-5 h-5 rounded-full bg-amber-200 text-amber-900 text-xs font-bold flex items-center justify-center mt-0.5">{i + 1}</span>
+                  <p className="text-sm text-stone-700 leading-relaxed">{line}</p>
+                </li>
+              ))}
+            </ol>
+          </div>
+        );
+      }
+
+      // ── SecondAdultPanel ──
+      // Session-only (useState, not TinyBase) — second-adult scenario is a
+      // transient "what-if" and doesn't belong in the persisted profile.
+      // Computes net contribution = second income − work costs − marginal tax impact.
+      // "Marginal tax impact" = difference in stateTaxOwed between combined and
+      // single-earner incomes, plus the benefit phase-outs captured by the engine.
+      function SecondAdultPanel() {
+        const stateCode        = useCell('profile', 'current', 'stateCode')        ?? DEFAULTS.stateCode;
+        const familySize       = useCell('profile', 'current', 'familySize')       ?? DEFAULTS.familySize;
+        const currentIncome    = useCell('profile', 'current', 'currentIncome')    ?? DEFAULTS.currentIncome;
+        const adultCount       = useCell('profile', 'current', 'adultCount')       ?? DEFAULTS.adultCount;
+        const hasSection8Voucher = useCell('profile', 'current', 'hasSection8Voucher') ?? DEFAULTS.hasSection8Voucher;
+        const pfccEnrolled     = useCell('profile', 'current', 'pfccEnrolled')     ?? DEFAULTS.pfccEnrolled;
+        const employerHealthInsurance = useCell('profile', 'current', 'employerHealthInsurance') ?? DEFAULTS.employerHealthInsurance;
+        const matchRate        = useCell('profile', 'current', 'matchRate')        ?? DEFAULTS.matchRate;
+
+        const [secondIncome,    setSecondIncome]    = useState(30000);
+        const [childcareCost,   setChildcareCost]   = useState(0);
+        const [transportCost,   setTransportCost]   = useState(0);
+
+        const fs    = Number(familySize);
+        const base  = Number(currentIncome);
+        const combined = base + Number(secondIncome);
+        const opts  = { stateCode, adultCount: Number(adultCount), hasVoucher: !!hasSection8Voucher,
+                        pfccEnrolled: !!pfccEnrolled, employerHealthInsurance: !!employerHealthInsurance,
+                        matchRate: Number(matchRate) || 0 };
+
+        const singleResult   = useMemo(() => calcEffectiveTakeHome(base,     fs, opts),
+          [stateCode, base, fs, adultCount, hasSection8Voucher, pfccEnrolled, employerHealthInsurance, matchRate]);
+        const combinedResult = useMemo(() => calcEffectiveTakeHome(combined, fs, opts),
+          [stateCode, combined, fs, adultCount, hasSection8Voucher, pfccEnrolled, employerHealthInsurance, matchRate]);
+
+        // Net = change in total effective value when second adult works, minus work costs
+        const benefitDelta   = combinedResult.totalEffective - singleResult.totalEffective;
+        const workCosts      = (Number(childcareCost) || 0) + (Number(transportCost) || 0);
+        // benefitDelta already includes the second income itself (engine adds grossWages)
+        // so we only subtract out-of-pocket work costs on top
+        const netContribution = benefitDelta - workCosts;
+
+        const THRESHOLD = 1000;
+        const verdict = netContribution > THRESHOLD ? 'yes'
+                      : netContribution < -THRESHOLD ? 'no'
+                      : 'marginal';
+
+        const verdictConfig = {
+          yes:      { bg: 'bg-green-50',  border: 'border-green-200',  icon: '✓', iconColor: 'text-green-600', label: 'Worth it', labelColor: 'text-green-700' },
+          no:       { bg: 'bg-red-50',    border: 'border-red-200',    icon: '✗', iconColor: 'text-red-600',   label: 'Not worth it', labelColor: 'text-red-700' },
+          marginal: { bg: 'bg-amber-50',  border: 'border-amber-200',  icon: '~', iconColor: 'text-amber-600', label: 'Marginal',   labelColor: 'text-amber-700' },
+        };
+        const vc = verdictConfig[verdict];
+
+        // Chart data: single-earner vs combined-income effective take-home
+        const chartData = useMemo(() => {
+          const pts = [];
+          for (let income = 0; income <= 120000; income += 1000) {
+            const r = calcEffectiveTakeHome(income, fs, opts);
+            pts.push({ income, single: r.totalEffective });
+          }
+          // Combined line: second income is fixed, sweep primary income
+          for (let i = 0; i < pts.length; i++) {
+            const inc = pts[i].income;
+            const r2 = calcEffectiveTakeHome(inc + Number(secondIncome), fs, opts);
+            pts[i].combined = r2.totalEffective - workCosts;
+          }
+          return pts;
+        }, [stateCode, fs, adultCount, hasSection8Voucher, pfccEnrolled, employerHealthInsurance, matchRate, secondIncome, workCosts]);
+
+        const canvasRef = useRef(null);
+        const chartRef  = useRef(null);
+
+        useEffect(() => {
+          if (!canvasRef.current) return;
+          if (chartRef.current) { chartRef.current.destroy(); chartRef.current = null; }
+          const labels = chartData.map(d => d.income === 0 ? '$0' : d.income % 20000 === 0 ? `$${d.income/1000}k` : '');
+          chartRef.current = new Chart(canvasRef.current, {
+            type: 'line',
+            data: {
+              labels,
+              datasets: [
+                { label: 'Single earner', data: chartData.map(d => d.single),   borderColor: '#44403C', borderWidth: 2, pointRadius: 0, tension: 0 },
+                { label: 'Both working',  data: chartData.map(d => d.combined), borderColor: '#16A34A', borderWidth: 2, pointRadius: 0, tension: 0, borderDash: [5,3] },
+              ],
+            },
+            options: {
+              responsive: true, maintainAspectRatio: true, aspectRatio: 2,
+              animation: { duration: 200 },
+              plugins: { legend: { display: true, position: 'bottom', labels: { boxWidth: 12, font: { size: 11 } } }, tooltip: { enabled: false } },
+              scales: {
+                x: { ticks: { font: { size: 11 }, color: '#A8A29E', maxRotation: 0 } },
+                y: { ticks: { font: { size: 11 }, color: '#A8A29E', callback: v => `$${(v/1000).toFixed(0)}k` } },
+              },
+            },
+          });
+          return () => { if (chartRef.current) { chartRef.current.destroy(); chartRef.current = null; } };
+        }, [chartData]);
+
+        function handleInput(setter, max) {
+          return e => setter(Math.max(0, Math.min(max, Number(e.target.value) || 0)));
+        }
+
+        return (
+          <div className="mt-6 bg-white rounded-2xl border border-stone-200 p-5">
+            <h2 className="text-base font-semibold text-stone-800 mb-1">Should the second adult work?</h2>
+            <p className="text-xs text-stone-500 mb-5 leading-relaxed">
+              Enter the second adult's potential income and any extra costs. We'll show whether it actually improves your household's position after benefits change.
+            </p>
+
+            {/* Second income */}
+            <div className="mb-4">
+              <label htmlFor="secondIncome" className="block text-sm font-medium text-stone-700 mb-1.5">
+                Second adult's annual income
+              </label>
+              <IncomeSlider id="secondIncome" value={Number(secondIncome)} onChange={setSecondIncome} />
+            </div>
+
+            {/* Childcare */}
+            <div className="mb-4">
+              <label htmlFor="childcareCost" className="block text-sm font-medium text-stone-700 mb-1.5">
+                Extra annual childcare cost ($)
+                <span className="block text-xs text-stone-400 font-normal mt-0.5">Full-day care needed while working. Enter 0 if already enrolled or not applicable.</span>
+              </label>
+              <input id="childcareCost" type="number" min="0" max="40000" step="500" inputMode="numeric"
+                value={childcareCost}
+                onChange={handleInput(setChildcareCost, 40000)}
+                className="w-full h-12 px-3 bg-white border border-stone-200 rounded-lg text-stone-900 text-base focus:outline-none focus:ring-2 focus:ring-amber-400"
+                style={{fontVariantNumeric:'tabular-nums'}} />
+            </div>
+
+            {/* Transport */}
+            <div className="mb-5">
+              <label htmlFor="transportCost" className="block text-sm font-medium text-stone-700 mb-1.5">
+                Extra annual transport cost ($)
+                <span className="block text-xs text-stone-400 font-normal mt-0.5">Gas, transit passes, parking. Annual total.</span>
+              </label>
+              <input id="transportCost" type="number" min="0" max="20000" step="250" inputMode="numeric"
+                value={transportCost}
+                onChange={handleInput(setTransportCost, 20000)}
+                className="w-full h-12 px-3 bg-white border border-stone-200 rounded-lg text-stone-900 text-base focus:outline-none focus:ring-2 focus:ring-amber-400"
+                style={{fontVariantNumeric:'tabular-nums'}} />
+            </div>
+
+            {/* Verdict card */}
+            <div className={`rounded-xl border ${vc.bg} ${vc.border} px-5 py-4 mb-5`}>
+              <div className="flex items-center gap-3 mb-2">
+                <span className={`text-xl font-bold ${vc.iconColor}`}>{vc.icon}</span>
+                <span className={`text-base font-bold ${vc.labelColor}`}>{vc.label}</span>
+              </div>
+              <p className="text-sm text-stone-700 leading-relaxed">
+                The second income adds{' '}
+                <span className="font-semibold" style={{fontVariantNumeric:'tabular-nums'}}>
+                  {fmtDollars(Number(secondIncome))}/yr
+                </span>{' '}
+                in wages. After benefit changes and work costs, the household is{' '}
+                <span className={`font-bold ${netContribution >= 0 ? 'text-green-700' : 'text-red-700'}`}
+                      style={{fontVariantNumeric:'tabular-nums'}}>
+                  {netContribution >= 0 ? '+' : '−'}{fmtDollars(netContribution)}/yr
+                </span>{' '}
+                {netContribution >= 0 ? 'better off' : 'worse off'}.
+              </p>
+              {workCosts > 0 && (
+                <p className="text-xs text-stone-500 mt-1.5">
+                  Work costs: {fmtDollars(workCosts)}/yr · Benefit impact: {benefitDelta - Number(secondIncome) >= 0 ? '+' : '−'}{fmtDollars(Math.abs(benefitDelta - Number(secondIncome)))}/yr
+                </p>
+              )}
+            </div>
+
+            {/* Combined-income chart */}
+            <p className="text-xs text-stone-500 mb-2">Effective take-home across primary earner incomes — comparing single vs both working</p>
+            <canvas ref={canvasRef} />
+          </div>
+        );
+      }
+
+      // ── ShareLinkCard ──
+      // Companion action to ManagerBrief: copy the current URL (which mirrors
+      // the live profile via the URL-hash writer in App). Sibling card so the
+      // affordance is visible regardless of scenario mode.
+      function ShareLinkCard() {
+        const [copied, setCopied] = useState(false);
+        async function handleCopy() {
+          try {
+            await navigator.clipboard.writeText(window.location.href);
+            setCopied(true);
+            setTimeout(() => setCopied(false), 2000);
+          } catch (_) {}
+        }
+        return (
+          <div className="mt-4 bg-orange-50 border border-amber-200 rounded-2xl p-5">
+            <div className="flex flex-col gap-3">
+              <div>
+                <h2 className="text-base font-semibold text-stone-800">Share this scenario</h2>
+                <p className="text-xs text-stone-500 mt-0.5">Send a friend or co-worker a link that opens CliffCheck pre-loaded with these inputs.</p>
+              </div>
+              <button
+                onClick={handleCopy}
+                className="w-full h-12 text-sm font-bold rounded-lg bg-amber-500 text-stone-900 hover:bg-amber-600 active:bg-amber-700 transition-colors"
+              >
+                {copied ? '✓ Link copied' : 'Copy link to this scenario'}
+              </button>
+              <p className="text-xs text-stone-500 leading-relaxed">
+                Your inputs are encoded in the URL — only share with people you'd tell about your finances.
+              </p>
+            </div>
+          </div>
+        );
+      }
+
+      // ── TipJarCard ──
+      // Soft post-result ask, placed after ManagerBrief so the user has seen
+      // their cliff chart before being asked. Free-first framing, single CTA.
+      function TipJarCard() {
+        return (
+          <div className="mt-6 rounded-xl border border-amber-200 bg-amber-50/60 px-5 py-5 text-center">
+            <p className="text-sm font-semibold text-stone-900">Did this help?</p>
+            <p className="mt-1.5 text-xs text-stone-600 leading-relaxed max-w-sm mx-auto">
+              CliffCheck is free, and stays free.
+            </p>
+            <p className="mt-1.5 text-xs text-stone-600 leading-relaxed max-w-sm mx-auto">
+              I'm a solo developer and want to take this to all 50 states. 
+              Every tip helps. Thank you for your support! 🙏
+            </p>
+            <a
+              href="https://ko-fi.com/cathalos"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mt-4 inline-flex items-center justify-center gap-2 w-full sm:w-auto sm:min-w-[200px] min-h-[44px] px-6 py-2.5 rounded-lg bg-amber-500 text-stone-900 font-bold text-sm hover:bg-amber-600 active:bg-amber-700 transition-colors"
+            >
+              <span aria-hidden="true">☕</span>
+              <span>Tip me a coffee</span>
+            </a>
+          </div>
+        );
+      }
+
+      // ── SourcesFooter ──
+      function SourcesFooter() {
+        const sources = [
+          { label: 'Federal Poverty Level (HHS/ASPE 2026)', url: 'https://aspe.hhs.gov/topics/poverty-economic-mobility/poverty-guidelines' },
+          { label: 'SNAP eligibility & allotments (USDA FNS)', url: 'https://www.fns.usda.gov/snap/recipient/eligibility' },
+          { label: 'Ohio Medicaid expansion (medicaid.gov)', url: 'https://www.medicaid.gov/state-overviews/stateprofile.html?state=Ohio' },
+          { label: 'ACA premium tax credits 2026 (thefinancebuff.com)', url: 'https://thefinancebuff.com/aca-premium-tax-credit-percentages.html' },
+          { label: 'Ohio PFCC childcare subsidy (Ohio DCY)', url: 'https://childrenandyouth.ohio.gov/for-providers/resources/pfcc' },
+          { label: 'Section 8 / Housing Choice Vouchers (HUD)', url: 'https://www.hud.gov/helping-americans/housing-choice-vouchers-tenants' },
+        ];
+        return (
+          <div className="mt-6 border-t border-stone-200 pt-4">
+            <p className="text-xs text-stone-400 mb-3">Sources &amp; data references</p>
+            <ul className="space-y-2">
+              {sources.map(({ label, url }) => (
+                <li key={url}>
+                  <a href={url} target="_blank" rel="noopener noreferrer"
+                     className="text-xs text-stone-500 hover:text-amber-600 underline underline-offset-2">
+                    {label}
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </div>
+        );
+      }
+
+      // ── DemoButton ──
+      const DEMO_PROFILE = {
+        stateCode: 'OH', familySize: 4, currentIncome: 44000,
+        offeredIncome: 70000, adultCount: 2, hasSection8Voucher: false, pfccEnrolled: true,
+      };
+
+      function DemoButton() {
+        function handleDemo() {
+          store.setRow('profile', 'current', DEMO_PROFILE);
+          setTimeout(() => {
+            const el = document.getElementById('cliff-chart');
+            if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          }, 50);
+        }
+        return (
+          <button
+            onClick={handleDemo}
+            className="w-full mt-3 h-12 rounded-lg bg-amber-500 text-stone-900 font-bold text-sm hover:bg-amber-600 active:bg-amber-700 transition-colors"
+          >
+            Try the demo — Ohio warehouse worker, family of 4
+          </button>
+        );
+      }
+
+      // ── UnsupportedStateMessage ──
+      // Rendered in place of the calculator surfaces when the persisted
+      // stateCode isn't one of the supported states (typo, deeplink, removed
+      // state). Honest > confidently wrong: never silently render OH numbers
+      // for a non-OH state code.
+      function UnsupportedStateMessage() {
+        const stateCode = useCell('profile', 'current', 'stateCode') ?? DEFAULTS.stateCode;
+        const supported = getSupportedStates();
+        return (
+          <div className="mt-4 bg-white rounded-2xl border border-amber-200 p-5">
+            <h2 className="text-base font-semibold text-stone-800 mb-2">
+              We don't have data for {stateCode || 'this state'} yet
+            </h2>
+            <p className="text-sm text-stone-600 leading-relaxed mb-3">
+              CliffCheck currently models benefit cliffs for: {supported.map(s => s.label).join(', ')}.
+              Pick one of the supported states above to see your cliff chart.
+            </p>
+            <p className="text-xs text-stone-400">
+              More states are being added — benefit rules vary materially by state, so we ship them one at a time after primary-source verification.
+            </p>
+          </div>
+        );
+      }
+
+      // ── App ──
+      function App() {
+        useEffect(() => {
+          // URL hash wins over persisted localStorage on first load only.
+          // Capture once at mount; the hydrate must happen between autoLoad
+          // (which restores localStorage) and autoSave (so the override isn't
+          // racing the save loop).
+          const fromUrl = parseProfileHash(window.location.hash);
+          const persister = createLocalPersister(store, 'cliffcheck-v1');
+          persister.startAutoLoad({ profile: { current: DEFAULTS } })
+            .then(() => {
+              if (fromUrl) {
+                store.setRow('profile', 'current', { ...DEFAULTS, ...fromUrl });
+              }
+              return persister.startAutoSave();
+            });
+          return () => persister.destroy();
+        }, []);
+
+        // Debounced URL-hash mirror: every profile mutation updates the URL
+        // ~300ms after the last edit, so a copy-link captures the live scenario.
+        // Uses history.replaceState to avoid polluting browser history.
+        useEffect(() => {
+          let timer = null;
+          const listenerId = store.addRowListener('profile', 'current', () => {
+            clearTimeout(timer);
+            timer = setTimeout(() => {
+              const row = store.getRow('profile', 'current');
+              const next = '#' + encodeProfileHash(row);
+              if (next !== window.location.hash) {
+                window.history.replaceState(null, '', window.location.pathname + window.location.search + next);
+              }
+            }, 300);
+          });
+          return () => { store.delListener(listenerId); clearTimeout(timer); };
+        }, []);
+
+        return (
+          <Provider store={store}>
+            <Shell />
+          </Provider>
+        );
+      }
+
+      // Shell reads the persisted stateCode and gates the calculator surfaces
+      // on it, so an unsupported code shows the UnsupportedStateMessage in
+      // place of the chart/summary/brief instead of silently rendering OH.
+      function Shell() {
+        const stateCode  = useCell('profile', 'current', 'stateCode')  ?? DEFAULTS.stateCode;
+        const adultCount = useCell('profile', 'current', 'adultCount') ?? DEFAULTS.adultCount;
+        const supported  = isSupportedState(stateCode);
+        const isTwoAdult = Number(adultCount) >= 2;
+
+        // scenarioMode: 'raise' (default) | 'second-adult'
+        // Session-only — not persisted. Second-adult scenario is a transient what-if.
+        const [scenarioMode, setScenarioMode] = useState('raise');
+        const showSecondAdult = scenarioMode === 'second-adult' && isTwoAdult;
+
+        return (
+          <div className="min-h-screen bg-stone-50">
+            <TrustBadge />
+            <div className="max-w-5xl mx-auto px-4 pt-4 pb-6">
+              <div className="text-center pt-4 pb-2">
+                <h1 className="text-2xl font-extrabold text-stone-900">CliffCheck</h1>
+                <p className="text-sm text-stone-500 mt-1">
+                  See the real cost of a raise — including what you'd lose in benefits
+                </p>
+                <DemoButton />
+              </div>
+
+              {/* Scenario toggle — only shown for two-adult households */}
+              {supported && isTwoAdult && (
+                <div className="flex gap-2 mt-3 mb-1 bg-stone-100 rounded-xl p-1">
+                  {[
+                    { id: 'raise',        label: 'Should I take this raise?' },
+                    { id: 'second-adult', label: 'Should the second adult work?' },
+                  ].map(({ id, label }) => (
+                    <button
+                      key={id}
+                      type="button"
+                      onClick={() => setScenarioMode(id)}
+                      className={`flex-1 min-h-[44px] px-3 py-2 rounded-lg text-sm font-semibold transition-colors leading-tight ${
+                        scenarioMode === id
+                          ? 'bg-white text-stone-900 shadow-sm'
+                          : 'text-stone-500 hover:text-stone-800'
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              <div className="md:grid md:grid-cols-[2fr_3fr] md:gap-6 md:items-start mt-2">
+                <div>
+                  <ProfileForm />
+                  {supported && !showSecondAdult && <LiveSummaryStrip />}
+                </div>
+                <div>
+                  {supported ? (
+                    showSecondAdult ? null : (
+                      <>
+                        <CliffChart />
+                        <LiveSummary />
+                      </>
+                    )
+                  ) : (
+                    <UnsupportedStateMessage />
+                  )}
+                </div>
+              </div>
+
+              {supported && showSecondAdult && <SecondAdultPanel />}
+              {supported && !showSecondAdult && <ManagerBrief />}
+              {supported && <ShareLinkCard />}
+              <TipJarCard />
+              <SourcesFooter />
+            </div>
+          </div>
+        );
+      }
+
+      // ── Mount ──
+      const root = ReactDOM.createRoot(document.getElementById("root"));
+      root.render(<App />);
+    </script>
+
+    <footer class="text-center text-sm text-stone-400 py-8 px-4">
+      <span class="mr-2">Built with</span>
+      <a href="https://claude.com/claude-code" target="_blank" rel="noopener noreferrer" class="hover:text-stone-600 underline underline-offset-2 mx-2">Claude Code</a>
+      <span class="mx-2">·</span>
+      <a href="https://getpapi.ai" target="_blank" rel="noopener noreferrer" class="hover:text-stone-600 underline underline-offset-2 mx-2">PAPI</a>
+      <span class="mx-2">·</span>
+      <a href="https://github.com/cathalos92/cliffcheck" target="_blank" rel="noopener noreferrer" class="hover:text-stone-600 underline underline-offset-2 mx-2">Source on GitHub</a>
+    </footer>
+  </body>
+</html>
