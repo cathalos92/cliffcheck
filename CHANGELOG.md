@@ -1,5 +1,9 @@
 # Changelog
 
+## v0.14.0-feat-cycle-14-core — 2026-06-26
+
+- 6a40f10 chore(security): untrack .mcp.json (contains DB credentials)
+
 ## v0.13.0 — 2026-05-09T20:36:11.028Z
 
 - 5f8f829 Merge pull request #12 from cathalos92/feat/task-85
