@@ -83,15 +83,20 @@ First wave (max cliff drama + reach, low data effort, exercises both expansion +
 
 ## Phasing (PAPI cycles, plan → build → review)
 
-- **A — Engine extraction & tests [BUILD].** Scaffold Next.js; extract `lib/engine/*`; convert validation suite to Vitest; add gov-URL guard. Exit: tests green, engine importable, no UI. *Keystone — ships first, proven.*  ← **Cycle 15**
-- **B — Provenance data model [DATA].** Wrap rules in `Rule<Provenance>`; swap ACA source to IRC §36B/IRS; build `provenance.ts` + `/methodology`.
-- **C — Calculator island [BUILD].** Port form/chart(→Recharts `stepAfter`, no smoothing)/result-cards/manager-brief; `useReducer` + URL hash; inline SourceChips; honour DESIGN.md (live update, no submit, trust badge).
-- **D — Marketing shell + rotating hero [BUILD].** Design bespoke landing sections in CliffCheck's own voice (NOT ported from PapiUI); `scenarios.ts`; `RotatingHero`; `app/page.tsx` + `/tool`; quiet PAPI footer/colophon; dynamic OG. Run a design exploration up front (the demographic deserves a distinct identity, not a template).
-- **E — SEO state pages + deploy [BUILD].** `app/[state]` SSG + sitemap; connect Vercel; preview QA; DNS cutover; archive `index.html`; flip private; rewrite CLAUDE.md/README for new stack.
-- **F — Priority states FL, GA, PA [DATA].** One state file + validate test each.
-- **G — Bracketed income tax + CA/NY [BUILD then DATA].**
+> **RE-ORDERED (Cycle 16, owner direction): DESIGN comes before provenance.** Owner priority is design + true value FIRST (see [[project-mission-soul]]). The engine (Cycle A) already gives the calculator real numbers, so the full product redesign does NOT depend on provenance. Provenance (user-facing citations) follows the redesign. This corrects the original order, which wrongly sequenced invisible provenance plumbing ahead of the visible redesign.
 
-Dependencies: B/C/D depend on A; F depends on the `states/` convention from A; CA/NY depend on G's bracketed-tax build.
+- **A — Engine extraction & tests [BUILD]. ✅ DONE (Cycle 15, v0.15.0).** Next.js scaffold; `lib/engine/*`; 88 Vitest tests green; gov-URL guard. Engine importable, behaviour-exact.
+- **B — FULL PRODUCT REDESIGN [DESIGN+BUILD]. ← Cycle 16.** The whole product to motionsites.ai quality, in CliffCheck's own bespoke identity (NOT a ported template). Brief-first:
+  1. **Design-direction brief** (committed doc) — translate `DESIGN.md`/`PRODUCT.md` + the motionsites.ai reference into a concrete spec: art direction, motion language, premium type/layout/elevation/spacing system, component inventory, full-page narrative. This is the design guidance on the working tree that governs every surface.
+  2. **Chrome + shell + extended tokens** — root layout, header, trust badge, quiet PAPI footer; motion/elevation tokens added to the palette system.
+  3. **Landing page** — hero (rotating engine-driven stat), full narrative (the hidden math, why this happens, the inequality framing, r/ohio proof, methodology teaser, CTA into the tool), premium motion, mobile-first.
+  4. **Calculator / tool** — the full interactive product designed to the SAME bar: input form, cliff chart (Recharts `stepAfter`, no smoothing), result cards (cliff alert / safe exit), manager brief, source chips (stub provenance OK), share-via-URL (`useReducer` + URL hash). The calculator is the product core — not a utility.
+- **C — Provenance data model [DATA].** Wrap rules in `Rule<Provenance>`; swap ACA source to IRC §36B/IRS (removes the task-107 known-exception + flips the tripwire); build `/methodology` page; populate inline SourceChips. *(Was Cycle B.)*
+- **D — SEO state pages + deploy [BUILD].** `app/[state]` SSG + sitemap; connect Vercel; preview QA; DNS cutover; archive `index.html`; flip private (keep public until Vercel green — no GitHub Pro); rewrite CLAUDE.md/README for new stack.
+- **E — Priority states FL, GA, PA [DATA].** One state file + validate test each (states.test.ts sweep already scaffolds this).
+- **F — Bracketed income tax + CA/NY [BUILD then DATA].**
+
+Dependencies: B depends on A (done). C builds on B's SourceChips/methodology surface. E depends on the `states/` convention (done). CA/NY depend on F's bracketed-tax build.
 
 ## Migration & deploy
 
