@@ -136,6 +136,25 @@ body {
   text-underline-offset: 2px;
 }
 
+/* Marketing asymmetric two-column (DESIGN-DIRECTION.md §5). Single column on
+   375px; widens to text + visual on md+. Inline styles can't express the media
+   query, so the landing's feature/proof blocks opt in via this class. The
+   visual sits slightly wider than the prose for an asymmetric composition. */
+.cc-two-col {
+  display: grid;
+  gap: clamp(24px, 5vw, 56px);
+  grid-template-columns: 1fr;
+  align-items: center;
+}
+@media (min-width: 768px) {
+  .cc-two-col {
+    grid-template-columns: 1fr 1.15fr;
+  }
+  .cc-two-col-reverse {
+    grid-template-columns: 1.15fr 1fr;
+  }
+}
+
 /* Reduced-motion safety net (DESIGN-DIRECTION.md §9). Any transform/animation a
    component adds is neutralised here for users who ask for less motion — they
    fall back to instant/opacity-only. Components also gate their own transforms,
