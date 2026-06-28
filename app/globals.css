@@ -58,6 +58,25 @@
   --type-subheading: 14px;
   --type-body: 14px;
   --type-caption: 12px;
+
+  /* Motion + elevation tokens.
+     GENERATED — do not edit between the markers. Edit globalsMotion in
+     lib/palette.ts and run `npm run gen:palette`. CI (`palette:check`) fails on
+     drift. Marketing-surface depth/motion (DESIGN-DIRECTION.md §8/§9); the tool
+     surface stays flat per DESIGN.md. */
+  /* @palette:motion start */
+  /* Motion + elevation — DESIGN-DIRECTION.md §8/§9 (marketing depth; tool stays flat) */
+  /* Motion durations */
+  --motion-fast: 160ms;  /* hover/press micro-interactions */
+  --motion-base: 240ms;  /* scroll-reveal entrances, card transitions */
+  --motion-slow: 480ms;  /* rotating hero crossfade */
+  /* Easing curves */
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);  /* confident settle */
+  --ease-standard: cubic-bezier(0.4, 0, 0.2, 1);
+  /* Elevation — soft, warm-tinted; marketing only (tool stays flat) */
+  --elevation-card: 0 1px 2px rgba(28, 25, 23, 0.04);  /* resting feature card */
+  --elevation-float: 0 8px 30px rgba(28, 25, 23, 0.06);  /* floating card / hover lift */
+  /* @palette:motion end */
 }
 
 /* Make CliffCheck tokens available as Tailwind 4 utility colours. */
@@ -95,4 +114,58 @@ body {
 /* Money values align in columns and read accurately (DESIGN.md). */
 .tabular-nums {
   font-variant-numeric: tabular-nums;
+}
+
+/* Visible keyboard focus everywhere — amber ring, never blue (DESIGN.md). */
+:focus-visible {
+  outline: 2px solid var(--color-brand-amber);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+
+/* Chrome interactive hover/press (DESIGN-DIRECTION.md §9 micro-interactions).
+   Inline styles can't express :hover, so the chrome's interactive links own
+   their hover here. Amber accent on hover, never a fill. Transitions are
+   neutralised under reduced-motion by the safety net below. */
+.cc-header-link:hover,
+.cc-footer-link:hover {
+  color: var(--color-text-primary);
+}
+.cc-footer-link:hover {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+/* Marketing asymmetric two-column (DESIGN-DIRECTION.md §5). Single column on
+   375px; widens to text + visual on md+. Inline styles can't express the media
+   query, so the landing's feature/proof blocks opt in via this class. The
+   visual sits slightly wider than the prose for an asymmetric composition. */
+.cc-two-col {
+  display: grid;
+  gap: clamp(24px, 5vw, 56px);
+  grid-template-columns: 1fr;
+  align-items: center;
+}
+@media (min-width: 768px) {
+  .cc-two-col {
+    grid-template-columns: 1fr 1.15fr;
+  }
+  .cc-two-col-reverse {
+    grid-template-columns: 1.15fr 1fr;
+  }
+}
+
+/* Reduced-motion safety net (DESIGN-DIRECTION.md §9). Any transform/animation a
+   component adds is neutralised here for users who ask for less motion — they
+   fall back to instant/opacity-only. Components also gate their own transforms,
+   but this guarantees the contract globally. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

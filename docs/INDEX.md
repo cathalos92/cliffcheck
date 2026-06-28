@@ -6,7 +6,8 @@
 
 | Document | Status | Last Updated | Consumer |
 |----------|--------|--------------|----------|
-| *Add architecture docs here* | | | |
+| [replatform/PLAN.md](replatform/PLAN.md) | Active | 2026-06-26 | planner, builder, strategy-review |
+| [replatform/DESIGN-DIRECTION.md](replatform/DESIGN-DIRECTION.md) | Active | 2026-06-26 | builder, design |
 
 ## Operations
 
