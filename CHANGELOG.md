@@ -1,5 +1,14 @@
 # Changelog
 
+## v0.16.0 — 2026-06-28
+
+- 193cec4 merge: Cycle 16 — full product redesign (design brief + chrome + landing + calculator)
+- 83c97de feat(task-118): full calculator/tool — engine-wired, share-URL, step chart
+- 2b99d43 feat(task-117): full landing page — rotating engine hero + narrative
+- dc5945b feat(task-116): app chrome + shell + motion/elevation tokens
+- b47a13b docs(task-115): design-direction brief — full product redesign spec
+- 10c43d6 docs(plan): re-order re-platform phasing to design-first
+
 ## v0.15.0 — 2026-06-26
 
 - 3b9489b merge: Cycle 15 — re-platform foundation (Next.js scaffold + engine extraction + tests + gov-source guard)
